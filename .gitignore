@@ -36,6 +36,9 @@ node_modules/
 .vscode/
 .idea/
 
+# Claude Code session state
+.claude/
+
 # Docker
 *.pid
 

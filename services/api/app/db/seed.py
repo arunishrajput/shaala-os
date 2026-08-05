@@ -332,17 +332,25 @@ def seed_students(db, sections: list[ClassSection], rng: random.Random) -> list[
     return students
 
 
+def pick_cliff_students(students: list[Student], rng: random.Random) -> list[int]:
+    """The 6 students deliberately trending toward the 75% attendance cliff.
+    Pure — no DB access — so callers can commit core people data (and create the
+    demo users that reference these ids) before the slow attendance bulk load runs.
+    """
+    return [s.id for s in rng.sample(students, 6)]
+
+
 def seed_attendance(
-    db, students: list[Student], sections: list[ClassSection], rng: random.Random
-) -> list[int]:
-    """90 days of textured history ending the day before ANCHOR_DATE. Returns the
-    ids of the 6 students deliberately trending toward the 75% cliff."""
+    db,
+    students: list[Student],
+    sections: list[ClassSection],
+    cliff_ids: set[int],
+    rng: random.Random,
+) -> None:
+    """90 days of textured history ending the day before ANCHOR_DATE."""
     flu_section = sections[3]  # "8-A"
     flu_week_start = ANCHOR_DATE - timedelta(days=23)
     festival_dip_start = ANCHOR_DATE - timedelta(days=52)
-
-    cliff_students = rng.sample(students, 6)
-    cliff_ids = {s.id for s in cliff_students}
     last_week_start = ANCHOR_DATE - timedelta(days=7)
 
     records = []
@@ -399,9 +407,16 @@ def seed_attendance(
                 }
             )
 
-    db.execute(insert(AttendanceRecord), records)
+    # Explicit multi-row VALUES batches, not one execute() per row — over a
+    # high-latency connection (e.g. a remote managed Postgres), relying on the
+    # driver's default executemany behavior for ~46k rows made this pathologically
+    # slow (one network round trip per row).
+    chunk_size = 2000
+    for i in range(0, len(records), chunk_size):
+        chunk = records[i : i + chunk_size]
+        db.execute(insert(AttendanceRecord).values(chunk))
+        db.commit()
     db.flush()
-    return [s.id for s in cliff_students]
 
 
 def seed_flavor_data(
@@ -521,16 +536,20 @@ def main() -> None:
 
         seed_assignments(db, sections, subjects, teachers_by_dept)
         students = seed_students(db, sections, rng)
-        cliff_student_ids = seed_attendance(db, students, sections, rng)
+        cliff_student_ids = pick_cliff_students(students, rng)
         seed_flavor_data(db, teachers_by_dept, students, cliff_student_ids)
         seed_users(db, teachers_by_dept, cliff_student_ids)
-
         db.commit()
         print(
-            f"Seeded: {len(sections)} sections, "
+            f"Core data committed: {len(sections)} sections, "
             f"{sum(len(v) for v in teachers_by_dept.values())} teachers, "
             f"{len(students)} students, {len(rooms)} rooms, {len(time_slots)} time slots."
         )
+
+        # Slowest part (~46k rows) — committed in its own chunks (see
+        # seed_attendance) so a partial run still leaves the core data intact.
+        seed_attendance(db, students, sections, set(cliff_student_ids), rng)
+        print("Attendance history committed.")
     except Exception:
         db.rollback()
         raise

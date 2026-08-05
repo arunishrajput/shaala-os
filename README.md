@@ -19,13 +19,15 @@ appears → one tap → grid rewrites → parents notified. Under 8 MB._
 
 ## Live demo
 
-> **TODO — filled in once Phase 1 deploy plumbing lands.**
->
 > | | |
 > |---|---|
-> | Live app | _pending_ |
-> | Demo logins | admin / teacher / parent — `POST /auth/demo-login?role=` |
-> | Reset demo data | button in the app header, or `POST /demo/reset` |
+> | Live app | **https://shaala-os.vercel.app** |
+> | API | https://shaala-os-api.onrender.com (`/health`, `/ws/events`) |
+> | Demo logins | Tap "Continue as Admin / Teacher / Parent" on the login screen — no password needed. (Direct: `POST /auth/demo-login?role=admin\|teacher\|parent`) |
+> | Reset demo data | `POST /demo/reset` — **not built yet, arrives in Phase 4.** For now the seed is static; re-run `make seed` against the target database to restore it. |
+>
+> Render's free tier sleeps after inactivity — the first request after a while may
+> take a few seconds to wake up.
 
 ---
 
@@ -93,10 +95,10 @@ of needing to be special-cased.
 git clone https://github.com/arunishrajput/shaala-os.git
 cd shaala-os
 cp .env.example .env        # fill in secrets; VISION_PROVIDER=fixture needs none
-make up                     # Postgres + API in Docker, then `make seed`
+make demo                   # Postgres + API in Docker, migrated, and seeded
 ```
 
-Then `flutter run -d chrome` in `apps/admin`, or open the deployed web URL above.
+Then `cd apps/admin && flutter run -d chrome`, or open the deployed web URL above.
 `make verify` runs the full gate (lint, types, tests, Flutter analyze + web build)
 locally before every commit.
 
@@ -109,7 +111,8 @@ weakness. Updated at the end of every phase.
 
 | Area | Status |
 |---|---|
-| Foundation (auth, data model, seed, deploy) | 🚧 Phase 1 in progress |
+| Foundation — data model, fixed-seed data, JWT + 3 demo logins, deploy | ✅ Phase 1 done |
+| Flutter shell — theme, nav rail, WS-driven Riverpod, People (read-only) | ✅ Phase 1 done |
 | Timetable solver | ⏳ Not started — Phase 2 |
 | AI document reader | ⏳ Not started — Phase 3 |
 | Proactive Action Center | ⏳ Not started — Phase 4 |
