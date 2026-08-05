@@ -1,0 +1,43 @@
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Flutter / Dart
+apps/admin/.dart_tool/
+apps/admin/.flutter-plugins
+apps/admin/.flutter-plugins-dependencies
+apps/admin/.pub-cache/
+apps/admin/.pub/
+apps/admin/build/
+apps/admin/web/flutter_service_worker.js
+**/*.g.dart
+**/*.freezed.dart
+
+# Node (deploy CLIs, tooling)
+node_modules/
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Docker
+*.pid
+
+# Logs
+*.log
