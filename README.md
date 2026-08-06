@@ -115,7 +115,7 @@ weakness. Updated at the end of every phase.
 | Flutter shell — theme, nav rail, WS-driven Riverpod, People (read-only) | ✅ Phase 1 done |
 | Timetable solver — CP-SAT, explain-any-cell, drag-and-drop validation | ✅ works locally (~8s, verified); ⚠️ **"Generate" doesn't complete on the live deployed URL** — Render's free-tier RAM can't fit the solve, root-caused (see PROGRESS.md), fix deferred to Phase 5/6 |
 | Substitute repair algorithm | ✅ built + tested; live demo wiring is Phase 4 |
-| AI document reader — upload/bulk/"Try a sample", extract, review UI with bbox + confidence, commit to real rows | ✅ Phase 3 done (fixture provider tested end to end; Gemini provider built + verified against current API docs, not yet exercised live — no key in this session) |
+| AI document reader — upload/bulk/"Try a sample", extract, review UI with bbox + confidence, commit to real rows | ✅ Phase 3 done, verified live on the deployed URL (fixture provider tested end to end; Gemini provider built + verified against current API docs, not yet exercised live — no key in this session) |
 | Proactive Action Center | ⏳ Not started — Phase 4 |
 | QR attendance / staffing forecast | ⏳ Not started — Phase 4 |
 | Group-photo attendance | ⏳ Optional stretch — only if Phase 4 finishes early, fixture-backed on the deployed demo, never `dlib`/`face_recognition` in production |

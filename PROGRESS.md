@@ -84,9 +84,8 @@ phase, per CLAUDE.md.
   checked via desktop browser automation.
 - Explain's full re-solve-with-forbidden-cell and `/timetable/generate` itself
   are both affected by the production memory issue above; the document
-  pipeline is unaffected (verified working on `make verify`'s standard
-  environment — production redeploy/reseed for Phase 3 still pending as of
-  this update, see next session).
+  pipeline is unaffected and now verified live in production (see Phase 3
+  log entry above for the free-tier pre-deploy-command gap this uncovered).
 
 ## Next 3 tasks (Phase 4 — the intelligence)
 1. Signal engine (`services/signals/`, 6 rules) + real Action Center wiring —
@@ -117,5 +116,22 @@ Gate: with `VISION_PROVIDER=fixture` (no network calls in that code path — not
 just "network disabled," structurally incapable of making one), a sample
 admission form becomes a real `Student` row in well under the 15s budget
 (measured consistently under 1s locally) ✅. Verified via `pytest` and, live,
-in the browser against the local stack including the WS-driven dashboard
-reaction.
+in the browser against **both** the local stack and the deployed production
+URL (`shaala-os.vercel.app` / `shaala-os-api.onrender.com`): committed a
+sample admission form (601st student, dashboard ticked 600→601 live over WS)
+and a sample leave application (correctly routed to `TeacherAbsence`, student
+count unchanged) directly against production.
+
+**Deploy runbook correction, found while shipping this phase:** Render's free
+tier silently skips `preDeployCommand` — the deploy log says so explicitly
+("Predeploy command not run. Commands can only run on paid instance types"),
+it isn't just slow or hidden. The `alembic upgrade head` pre-deploy command
+configured on the service has therefore never actually been running.
+`services/api/tests` never caught this because they run against the
+Docker-composed local Postgres, not prod. Migration `7724d77e9a26` (this
+phase's `original_url` → `Text` column widen) had to be applied by hand:
+`docker compose run --rm -e DATABASE_URL=<neon-prod-url> --no-deps api alembic
+upgrade head`, using `neonctl connection-string` to get the URL. **Every
+future phase that adds a migration must do this manually after pushing** —
+there is no free-tier auto-migration path. Worth revisiting if the Render
+plan is ever upgraded (Phase 5/6 territory, alongside the solver RAM issue).
