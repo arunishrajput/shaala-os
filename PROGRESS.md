@@ -42,7 +42,24 @@ phase, per CLAUDE.md.
   substitute *algorithm* is built and tested; the live demo wiring is Phase 4.
 
 ## Broken
-- (none)
+- **`POST /timetable/generate` fails on the deployed production URL.** Works
+  reliably locally (~8s, verified repeatedly via `make verify` and manual
+  testing) but Render's free-tier instance (512MB RAM) can't complete a solve
+  of this size (~30k CP-SAT variables including the soft-objective auxiliaries)
+  — diagnostic added to the API response shows `num_branches: 0` even after a
+  25s budget, meaning it's stalling before search even starts, not just
+  running slow. Points at memory pressure during presolve, not CPU. Explored:
+  capping solver worker threads to available cores (didn't help — same result
+  at 8 vs. fewer workers), raising the time budget via `SOLVER_TIME_LIMIT_S`
+  env var (didn't help — still 0 branches at 25s). Root-caused but not yet
+  fixed; the Flutter UI degrades gracefully (shows the failure reason in a red
+  banner, per `_StatsBanner`) rather than hanging or crashing, so this doesn't
+  break the deployed app, it just means the "Generate" button doesn't work on
+  the live URL yet. Decided to defer further work on this to Phase 5/6
+  (demo-hardening) rather than keep spending Phase 2 time on infra tuning —
+  options on the table: upgrade Render's plan, or shrink the CP-SAT model
+  (the soft-objective's idle-gap/balance terms add several thousand auxiliary
+  variables per `docs/solver.md` — the likely first place to cut).
 
 ## Known gaps / manual follow-ups
 - Phase 1's "verified from a phone on mobile data" gate item — still only
@@ -50,10 +67,14 @@ phase, per CLAUDE.md.
 - Explain's full re-solve-with-forbidden-cell (~6-8s) re-solves the *entire*
   timetable, not just the one entry frozen-except-itself — disclosed in
   `docs/solver.md`, not hidden. The fast ranked-alternatives path used for the
-  actual UI suggestions doesn't have this cost.
+  actual UI suggestions doesn't have this cost. This path is *also* affected by
+  the production memory issue above, so the explain panel's re-solve-diff
+  section won't populate on the deployed URL either — the rules-based reasons
+  and ranked alternatives (the fast, non-solving paths) still work fine.
 - CP-SAT's 8s default time budget returns `FEASIBLE` (zero hard violations,
   gate-compliant) but rarely `OPTIMAL` — soft-constraint quality is
-  time-bounded, documented in `docs/solver.md` with real numbers.
+  time-bounded, documented in `docs/solver.md` with real numbers. (Local only —
+  see the Broken item above for the separate production issue.)
 
 ## Next 3 tasks (Phase 3 — the AI reader)
 1. `VisionProvider` interface (`gemini` + `fixture` backends) — verify the

@@ -113,7 +113,7 @@ weakness. Updated at the end of every phase.
 |---|---|
 | Foundation — data model, fixed-seed data, JWT + 3 demo logins, deploy | ✅ Phase 1 done |
 | Flutter shell — theme, nav rail, WS-driven Riverpod, People (read-only) | ✅ Phase 1 done |
-| Timetable solver — CP-SAT, explain-any-cell, drag-and-drop validation | ✅ Phase 2 done |
+| Timetable solver — CP-SAT, explain-any-cell, drag-and-drop validation | ✅ works locally (~8s, verified); ⚠️ **"Generate" doesn't complete on the live deployed URL** — Render's free-tier RAM can't fit the solve, root-caused (see PROGRESS.md), fix deferred to Phase 5/6 |
 | Substitute repair algorithm | ✅ built + tested; live demo wiring is Phase 4 |
 | AI document reader | ⏳ Not started — Phase 3 |
 | Proactive Action Center | ⏳ Not started — Phase 4 |
