@@ -11,6 +11,7 @@ notation; see docs/solver.md.
 
 from __future__ import annotations
 
+import os
 import time as time_module
 from dataclasses import dataclass, field
 
@@ -380,7 +381,10 @@ def solve(
     build = build_model(si, weights, forbidden=forbidden)
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit
-    solver.parameters.num_workers = 8
+    # Match actual available cores — more workers than cores causes contention,
+    # not speedup, and free-tier deploy containers may have very few (or
+    # fractional) CPUs. os.cpu_count() can be None; fall back conservatively.
+    solver.parameters.num_workers = max(1, min(os.cpu_count() or 4, 8))
 
     start = time_module.perf_counter()
     status = solver.solve(build.model)
