@@ -19,6 +19,7 @@ from ortools.sat.python import cp_model
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db.models import (
     Assignment,
     ClassSection,
@@ -460,7 +461,7 @@ def generate_timetable(
     db: Session, weights: dict[str, float] | None = None, label: str = "Generated timetable"
 ) -> dict:
     si = load_solve_input(db)
-    result = solve(si, weights=weights)
+    result = solve(si, weights=weights, time_limit=settings.solver_time_limit_s)
 
     if not result.feasible:
         return {

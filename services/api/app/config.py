@@ -15,6 +15,10 @@ class Settings:
     gemini_model_id: str = os.getenv("GEMINI_MODEL_ID", "")
     cors_origins: list[str] = _split_csv(os.getenv("CORS_ORIGINS", ""))
     env: str = os.getenv("ENV", "development")
+    # Local/CI hardware comfortably solves within the default; free-tier deploy
+    # hosts can be CPU-constrained enough to need more — tunable per environment
+    # without touching the tested default (see tests/test_solver.py).
+    solver_time_limit_s: float = float(os.getenv("SOLVER_TIME_LIMIT_S", "8.0"))
 
 
 settings = Settings()
