@@ -214,6 +214,14 @@ def detect_room_conflicts(db: Session, today: date) -> list[Detection]:
 
 @signal(kind="free_periods", severity="info")
 def detect_free_periods(db: Session, today: date) -> list[Detection]:
+    """Flags a class with *more* free periods than its peers, not just "some
+    free periods" -- every class here structurally has the same baseline
+    slack (subject weekly_periods sum to fewer than the week's non-break
+    slots, by design, for every section equally), so an absolute threshold
+    fired identically for all 12 classes every time and turned this into
+    dashboard noise instead of a signal. Only a class sitting above the
+    baseline everyone shares is actually worth a principal's attention.
+    """
     version = active_version(db)
     if version is None:
         return []
@@ -227,10 +235,19 @@ def detect_free_periods(db: Session, today: date) -> list[Detection]:
         booked.setdefault(e.class_id, set()).add(e.slot_id)
     non_break_slot_ids = {s.id for s in si.slots if not s.is_break}
 
+    free_counts = {
+        section.id: len(non_break_slot_ids - booked.get(section.id, set()))
+        for section in si.sections
+    }
+    if not free_counts:
+        return []
+    baseline = min(free_counts.values())
+
     detections = []
     for section in si.sections:
-        free_count = len(non_break_slot_ids - booked.get(section.id, set()))
-        if free_count >= FREE_PERIODS_THRESHOLD:
+        free_count = free_counts[section.id]
+        excess = free_count - baseline
+        if excess >= FREE_PERIODS_THRESHOLD:
             label = f"{section.grade}-{section.section}"
             detections.append(
                 Detection(
@@ -238,7 +255,7 @@ def detect_free_periods(db: Session, today: date) -> list[Detection]:
                     title=f"{label} has {free_count} free periods this week",
                     body=(
                         f"{label}'s active timetable leaves {free_count} periods "
-                        "unscheduled this week."
+                        f"unscheduled this week -- {excess} more than other classes."
                     ),
                     payload={"class_id": section.id, "free_count": free_count},
                     primary_action="View timetable",

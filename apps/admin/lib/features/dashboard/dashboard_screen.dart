@@ -14,7 +14,7 @@ class DashboardScreen extends ConsumerWidget {
     final classes = ref.watch(classSectionsProvider);
     final students = ref.watch(studentsCountProvider);
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

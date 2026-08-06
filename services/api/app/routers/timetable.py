@@ -1,10 +1,14 @@
+from datetime import date as date_
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import RoomType, TimeSlot, TimetableEntry
+from app.config import DEMO_ANCHOR_DATE
+from app.db.models import RoomType, Teacher, TeacherAbsence, TimeSlot, TimetableEntry
 from app.db.session import get_db
+from app.services.signals.registry import run_signals
 from app.services.timetable.explain import (
     active_version,
     clear_cache,
@@ -13,6 +17,8 @@ from app.services.timetable.explain import (
     slot_label,
 )
 from app.services.timetable.solver import SolveInput, generate_timetable, load_solve_input
+from app.services.timetable.substitute import apply_substitution, find_substitutes
+from app.ws.manager import manager
 
 router = APIRouter(prefix="/timetable", tags=["timetable"])
 
@@ -203,3 +209,134 @@ def move(payload: MoveRequest, db: Session = Depends(get_db)) -> dict:
     clear_cache()
 
     return _entry_out(entry, load_solve_input(db))
+
+
+class AbsenceRequest(BaseModel):
+    teacher_id: int
+    date: date_ | None = None
+    reason: str = "Marked absent"
+
+
+class SubstituteRequest(BaseModel):
+    absence_id: int
+    # Identified by (class_id, slot_id), not entry_id: each substitution clones
+    # the whole active version, so entry_ids from an uncovered_periods listing
+    # fetched before an earlier substitution in the same batch are already
+    # stale by the time a later one in the same batch is applied. class_id +
+    # slot_id name the same grid cell across every version.
+    class_id: int
+    slot_id: int
+    teacher_id: int
+
+
+def _uncovered_remaining(db: Session, absence: TeacherAbsence) -> int:
+    version = active_version(db)
+    if version is None:
+        return 0
+    si = load_solve_input(db)
+    weekday = absence.date.weekday()
+    stmt = select(TimetableEntry).where(
+        TimetableEntry.version_id == version.id,
+        TimetableEntry.teacher_id == absence.teacher_id,
+    )
+    return sum(1 for e in db.scalars(stmt) if si.slots_by_id[e.slot_id].day == weekday)
+
+
+@router.post("/absence")
+async def mark_absence(payload: AbsenceRequest, db: Session = Depends(get_db)) -> dict:
+    """The "mark Mrs. Rao absent" moment (PROMPT.md §1, §6.2 point 3). Idempotent
+    per (teacher, date): calling it again for the same still-open absence just
+    returns the current uncovered periods, so a client can safely re-poll.
+    """
+    teacher = db.get(Teacher, payload.teacher_id)
+    if teacher is None:
+        raise HTTPException(status_code=404, detail="No such teacher.")
+    absence_date = payload.date or DEMO_ANCHOR_DATE
+
+    absence = db.scalar(
+        select(TeacherAbsence).where(
+            TeacherAbsence.teacher_id == payload.teacher_id,
+            TeacherAbsence.date == absence_date,
+            TeacherAbsence.resolved.is_(False),
+        )
+    )
+    if absence is None:
+        absence = TeacherAbsence(
+            teacher_id=payload.teacher_id,
+            date=absence_date,
+            reason=payload.reason,
+            resolved=False,
+        )
+        db.add(absence)
+        db.commit()
+
+    result = find_substitutes(db, payload.teacher_id, weekday=absence_date.weekday())
+    run_signals(db)
+    await manager.broadcast("actions.updated", {})
+    return {
+        "absence_id": absence.id,
+        "teacher_id": payload.teacher_id,
+        "teacher_name": result.get("teacher_name", teacher.name),
+        "date": absence_date.isoformat(),
+        "uncovered_periods": result["uncovered_periods"],
+    }
+
+
+@router.post("/substitute")
+async def substitute(payload: SubstituteRequest, db: Session = Depends(get_db)) -> dict:
+    absence = db.get(TeacherAbsence, payload.absence_id)
+    if absence is None:
+        raise HTTPException(status_code=404, detail="No such absence.")
+
+    version = active_version(db)
+    if version is None:
+        raise HTTPException(status_code=404, detail="No active timetable.")
+    original_entry = db.scalar(
+        select(TimetableEntry).where(
+            TimetableEntry.version_id == version.id,
+            TimetableEntry.class_id == payload.class_id,
+            TimetableEntry.slot_id == payload.slot_id,
+        )
+    )
+    if original_entry is None:
+        raise HTTPException(
+            status_code=404, detail="No timetable entry at that class/slot in the active version."
+        )
+    class_id, slot_id = payload.class_id, payload.slot_id
+
+    try:
+        new_version = apply_substitution(
+            db, original_entry.id, payload.teacher_id, label=f"Substitute — {absence.reason}"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    clear_cache()
+
+    remaining = _uncovered_remaining(db, absence)
+    if remaining == 0:
+        absence.resolved = True
+        db.commit()
+
+    si = load_solve_input(db)
+    new_entry = db.scalar(
+        select(TimetableEntry).where(
+            TimetableEntry.version_id == new_version.id,
+            TimetableEntry.class_id == class_id,
+            TimetableEntry.slot_id == slot_id,
+        )
+    )
+    if new_entry is None:
+        raise HTTPException(
+            status_code=500, detail="Substitution applied but the new entry could not be found."
+        )
+    entry_out = _entry_out(new_entry, si)
+
+    run_signals(db)
+    await manager.broadcast("timetable.substituted", entry_out)
+    await manager.broadcast("actions.updated", {})
+    return {
+        "absence_id": absence.id,
+        "absence_resolved": absence.resolved,
+        "uncovered_remaining": remaining,
+        "entry": entry_out,
+    }

@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../data/models/class_section.dart';
 import '../../data/models/teacher.dart';
 import '../../providers/people_providers.dart';
+import '../timetable/substitute_dialog.dart';
 
 class PeopleScreen extends StatefulWidget {
   const PeopleScreen({super.key});
@@ -72,12 +73,12 @@ class _TeachersTab extends ConsumerWidget {
   }
 }
 
-class _TeacherTile extends StatelessWidget {
+class _TeacherTile extends ConsumerWidget {
   const _TeacherTile({required this.teacher});
   final Teacher teacher;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: AppColors.accent.withValues(alpha: 0.2),
@@ -88,9 +89,20 @@ class _TeacherTile extends StatelessWidget {
       ),
       title: Text(teacher.name),
       subtitle: Text('${teacher.dept} · ${teacher.code} · ${teacher.phone}'),
-      trailing: Text(
-        '${teacher.maxPeriodsPerWeek} periods/wk',
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${teacher.maxPeriodsPerWeek} periods/wk',
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.event_busy, size: 16),
+            label: const Text('Mark absent'),
+            onPressed: () => showSubstituteDialog(context, ref, teacher.id),
+          ),
+        ],
       ),
     );
   }

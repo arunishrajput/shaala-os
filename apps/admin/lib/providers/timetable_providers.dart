@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/time_slot_info.dart';
@@ -80,3 +81,96 @@ class GenerateNotifier extends Notifier<GenerateState> {
 }
 
 final generateProvider = NotifierProvider<GenerateNotifier, GenerateState>(GenerateNotifier.new);
+
+/// The "mark absent -> assign substitutes" flow (PROMPT.md §6.2 point 3), open
+/// across whichever screen triggered it (the Action Center's uncovered_classes
+/// card, most often). `periods` uses (class_id, slot_id) as the assignment
+/// key, not entry_id -- every successful assignment clones the active
+/// timetable version, which would make a stale entry_id from an earlier
+/// period in the same batch invalid by the time it's used.
+class SubstitutePanelState {
+  const SubstitutePanelState({
+    this.absenceId,
+    this.teacherName,
+    this.date,
+    this.periods = const [],
+    this.loading = false,
+    this.error,
+    this.assigningKey,
+  });
+
+  final int? absenceId;
+  final String? teacherName;
+  final String? date;
+  final List<Map<String, dynamic>> periods;
+  final bool loading;
+  final String? error;
+  final String? assigningKey;
+
+  bool get isOpen => loading || absenceId != null || error != null;
+}
+
+class SubstitutePanelNotifier extends Notifier<SubstitutePanelState> {
+  @override
+  SubstitutePanelState build() => const SubstitutePanelState();
+
+  Future<void> open(int teacherId) async {
+    state = const SubstitutePanelState(loading: true);
+    try {
+      final result = await ref.read(timetableRepositoryProvider).markAbsence(teacherId);
+      state = SubstitutePanelState(
+        absenceId: result['absence_id'] as int,
+        teacherName: result['teacher_name'] as String,
+        date: result['date'] as String,
+        periods: (result['uncovered_periods'] as List).cast<Map<String, dynamic>>(),
+      );
+    } on DioException catch (e) {
+      state = SubstitutePanelState(error: ApiException.fromDioException(e).message);
+    }
+  }
+
+  Future<void> assign(Map<String, dynamic> period, int candidateTeacherId) async {
+    final key = '${period['class_id']}:${period['slot_id']}';
+    state = SubstitutePanelState(
+      absenceId: state.absenceId,
+      teacherName: state.teacherName,
+      date: state.date,
+      periods: state.periods,
+      assigningKey: key,
+    );
+    try {
+      await ref
+          .read(timetableRepositoryProvider)
+          .assignSubstitute(
+            absenceId: state.absenceId!,
+            classId: period['class_id'] as int,
+            slotId: period['slot_id'] as int,
+            teacherId: candidateTeacherId,
+          );
+      state = SubstitutePanelState(
+        absenceId: state.absenceId,
+        teacherName: state.teacherName,
+        date: state.date,
+        periods: [
+          for (final p in state.periods)
+            if (p['class_id'] != period['class_id'] || p['slot_id'] != period['slot_id']) p,
+        ],
+      );
+      ref.invalidate(activeTimetableProvider);
+    } on DioException catch (e) {
+      state = SubstitutePanelState(
+        absenceId: state.absenceId,
+        teacherName: state.teacherName,
+        date: state.date,
+        periods: state.periods,
+        error: ApiException.fromDioException(e).message,
+      );
+    }
+  }
+
+  void close() => state = const SubstitutePanelState();
+}
+
+final substitutePanelProvider = NotifierProvider<SubstitutePanelNotifier, SubstitutePanelState>(
+  SubstitutePanelNotifier.new,
+);

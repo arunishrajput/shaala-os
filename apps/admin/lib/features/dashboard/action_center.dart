@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../data/models/action_item.dart';
 import '../../providers/actions_providers.dart';
 import '../../providers/timetable_providers.dart';
+import '../timetable/substitute_dialog.dart';
 
 Color _severityColor(String severity) {
   switch (severity) {
@@ -18,13 +19,16 @@ Color _severityColor(String severity) {
   }
 }
 
-/// Screens that already exist for a given signal kind to hand off to. The two
-/// kinds with a genuinely bespoke flow (uncovered_classes -> assign
-/// substitutes, low_attendance_trend -> draft parent messages) are wired in a
-/// later commit; until then their primary action is an honest one-tap
-/// resolve rather than a fake button.
-void _handlePrimaryAction(BuildContext context, WidgetRef ref, ActionItemModel item) {
+/// Screens that already exist for a given signal kind to hand off to.
+/// low_attendance_trend's "Draft parent messages" is wired in a later commit;
+/// until then it's an honest one-tap resolve rather than a fake button.
+Future<void> _handlePrimaryAction(BuildContext context, WidgetRef ref, ActionItemModel item) async {
   switch (item.kind) {
+    case 'uncovered_classes':
+      final teacherId = item.payload['teacher_id'];
+      if (teacherId is int) {
+        await showSubstituteDialog(context, ref, teacherId);
+      }
     case 'documents_need_review':
       context.go('/documents');
     case 'staffing_shortfall':

@@ -104,6 +104,29 @@ class TimetableRepository {
         .map((e) => TimeSlotInfo.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  Future<Map<String, dynamic>> markAbsence(int teacherId) async {
+    final resp = await _client.dio.post('/timetable/absence', data: {'teacher_id': teacherId});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> assignSubstitute({
+    required int absenceId,
+    required int classId,
+    required int slotId,
+    required int teacherId,
+  }) async {
+    final resp = await _client.dio.post(
+      '/timetable/substitute',
+      data: {
+        'absence_id': absenceId,
+        'class_id': classId,
+        'slot_id': slotId,
+        'teacher_id': teacherId,
+      },
+    );
+    return resp.data as Map<String, dynamic>;
+  }
 }
 
 class DocumentsRepository {

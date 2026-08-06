@@ -33,6 +33,8 @@ class SubstituteCandidate:
 @dataclass
 class UncoveredPeriod:
     entry_id: int
+    class_id: int
+    slot_id: int
     class_label: str
     subject: str
     slot: str
@@ -86,7 +88,15 @@ def _rank_candidates(
     return candidates[:3]
 
 
-def find_substitutes(db: Session, absent_teacher_id: int) -> dict:
+def find_substitutes(
+    db: Session, absent_teacher_id: int, weekday: int | None = None
+) -> dict:
+    """`weekday` (0=Mon..5=Sat, matching TimeSlot.day) restricts "uncovered" to
+    periods on that one day -- what a single-day TeacherAbsence actually needs
+    covered. None (the default) returns every period that teacher has all
+    week, which is what the Phase 2 gate test exercises directly without an
+    absence date in the picture.
+    """
     si = load_solve_input(db)
     version = active_version(db)
     if version is None:
@@ -103,11 +113,15 @@ def find_substitutes(db: Session, absent_teacher_id: int) -> dict:
     for entry in entries:
         if entry.teacher_id != absent_teacher_id:
             continue
+        if weekday is not None and si.slots_by_id[entry.slot_id].day != weekday:
+            continue
         section = si.sections_by_id[entry.class_id]
         subject = si.subjects_by_id[entry.subject_id]
         uncovered.append(
             UncoveredPeriod(
                 entry_id=entry.id,
+                class_id=entry.class_id,
+                slot_id=entry.slot_id,
                 class_label=f"{section.grade}-{section.section}",
                 subject=subject.name,
                 slot=slot_label(si.slots_by_id[entry.slot_id]),
@@ -121,6 +135,8 @@ def find_substitutes(db: Session, absent_teacher_id: int) -> dict:
         "uncovered_periods": [
             {
                 "entry_id": u.entry_id,
+                "class_id": u.class_id,
+                "slot_id": u.slot_id,
                 "class": u.class_label,
                 "subject": u.subject,
                 "slot": u.slot,
