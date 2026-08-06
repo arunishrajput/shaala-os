@@ -10,15 +10,26 @@ feature serves" (memorized, demo-critical) while the section-naming aside is a
 secondary parenthetical, this seed resolves the conflict in the narrative's favor:
 grade 6 gets one section, grades 7-10 get two (A/B), grade 11 gets three (A/B/C) --
 exactly 12 sections, and 9-A / 10-B / 11-C all exist for the Mrs. Rao story.
+
+Every table here is seeded with one round trip (bulk INSERT ... RETURNING id),
+not one round trip per row. That distinction only matters once this runs over
+a real network instead of localhost-to-Docker: `POST /demo/reset` on Render
+(Oregon) against Neon originally took ~73s doing 650+ individual db.add()
+round trips -- over PROMPT.md §11's 15s budget by 5x. This version measured
+well under it against the same production database (see PROGRESS.md).
 """
 
 import random
+from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from typing import Any
 
 from sqlalchemy import insert, text
+from sqlalchemy.orm import Session
 
 from app.config import DEMO_ANCHOR_DATE
 from app.db.models import (
+    Assignment,
     AttendanceMethod,
     AttendanceRecord,
     AttendanceStatus,
@@ -73,16 +84,6 @@ _SUBJECT_ROWS = [
     ("Biology", "BIO", 4, False, False),
     ("Social Studies", "SST", 4, False, False),
     ("Computer Science", "CS", 2, True, True),
-]
-SUBJECT_DEFS = [
-    {
-        "name": name,
-        "code": code,
-        "weekly_periods": weekly_periods,
-        "needs_lab": needs_lab,
-        "is_double_period": is_double_period,
-    }
-    for name, code, weekly_periods, needs_lab, is_double_period in _SUBJECT_ROWS
 ]
 
 SECTION_DEFS = [
@@ -141,133 +142,167 @@ TABLES_IN_DELETE_ORDER = [
 ]
 
 
-def wipe(db) -> None:
+# Lightweight stand-ins for the ORM rows this module used to keep around after
+# insert. Only the fields something downstream actually reads.
+@dataclass
+class SubjectRef:
+    id: int
+    name: str
+    weekly_periods: int
+
+
+@dataclass
+class SectionRef:
+    id: int
+    grade: str
+    section: str
+    strength: int
+
+
+@dataclass
+class TeacherRef:
+    id: int
+    name: str
+    dept: str
+    max_periods_per_week: int
+
+
+def wipe(db: Session) -> None:
     for table in TABLES_IN_DELETE_ORDER:
         db.execute(text(f'TRUNCATE TABLE "{table}" RESTART IDENTITY CASCADE'))
     db.commit()
 
 
-def seed_school(db) -> School:
-    school = School(name="Shaala Public School", academic_year="2026-27")
-    db.add(school)
+def seed_school(db: Session) -> None:
+    db.add(School(name="Shaala Public School", academic_year="2026-27"))
     db.flush()
-    return school
 
 
-def seed_rooms(db) -> dict[str, Room]:
-    rooms = {}
-    for i in range(1, 9):
-        r = Room(name=f"Room {100 + i}", capacity=60, type=RoomType.classroom)
-        db.add(r)
-        rooms[r.name] = r
-    for name in ["Physics Lab", "Chemistry Lab", "Computer Lab"]:
-        # Must be >= class strength (50) — a lab smaller than a full class can
-        # never host that class's lab period under this schema (no class-splitting).
-        r = Room(name=name, capacity=60, type=RoomType.lab)
-        db.add(r)
-        rooms[name] = r
-    hall = Room(name="Assembly Hall", capacity=500, type=RoomType.hall)
-    db.add(hall)
-    rooms[hall.name] = hall
-    db.flush()
-    return rooms
+def seed_rooms(db: Session) -> int:
+    rows = [
+        {"name": f"Room {100 + i}", "capacity": 60, "type": RoomType.classroom}
+        for i in range(1, 9)
+    ]
+    # Must be >= class strength (50) — a lab smaller than a full class can
+    # never host that class's lab period under this schema (no class-splitting).
+    rows += [
+        {"name": name, "capacity": 60, "type": RoomType.lab}
+        for name in ["Physics Lab", "Chemistry Lab", "Computer Lab"]
+    ]
+    rows.append({"name": "Assembly Hall", "capacity": 500, "type": RoomType.hall})
+    db.execute(insert(Room).values(rows))
+    return len(rows)
 
 
-def seed_subjects(db) -> dict[str, Subject]:
-    subjects: dict[str, Subject] = {}
-    for s in SUBJECT_DEFS:
-        subj = Subject(
-            name=s["name"],
-            code=s["code"],
-            weekly_periods=s["weekly_periods"],
-            needs_lab=s["needs_lab"],
-            is_double_period=s["is_double_period"],
-        )
-        db.add(subj)
-        subjects[str(s["name"])] = subj
-    db.flush()
-    return subjects
+def seed_subjects(db: Session) -> dict[str, SubjectRef]:
+    rows: list[dict[str, Any]] = [
+        {
+            "name": name,
+            "code": code,
+            "weekly_periods": weekly_periods,
+            "needs_lab": needs_lab,
+            "is_double_period": is_double_period,
+        }
+        for name, code, weekly_periods, needs_lab, is_double_period in _SUBJECT_ROWS
+    ]
+    result = db.execute(insert(Subject).values(rows).returning(Subject.id))
+    ids = [r[0] for r in result]
+    return {
+        row["name"]: SubjectRef(id=id_, name=row["name"], weekly_periods=row["weekly_periods"])
+        for id_, row in zip(ids, rows, strict=True)
+    }
 
 
-def seed_sections(db) -> list[ClassSection]:
-    sections = []
-    for grade, section in SECTION_DEFS:
-        cs = ClassSection(grade=grade, section=section, strength=50)
-        db.add(cs)
-        sections.append(cs)
-    db.flush()
-    return sections
+def seed_sections(db: Session) -> list[SectionRef]:
+    rows: list[dict[str, Any]] = [
+        {"grade": grade, "section": section, "strength": 50} for grade, section in SECTION_DEFS
+    ]
+    result = db.execute(insert(ClassSection).values(rows).returning(ClassSection.id))
+    ids = [r[0] for r in result]
+    return [
+        SectionRef(id=id_, grade=row["grade"], section=row["section"], strength=row["strength"])
+        for id_, row in zip(ids, rows, strict=True)
+    ]
 
 
-def seed_time_slots(db) -> list[TimeSlot]:
-    slots = []
+def seed_time_slots(db: Session) -> list[dict]:
     period_starts = [
         time(8, 0), time(8, 45), time(9, 30), time(10, 15),
         time(11, 0), time(11, 45), time(12, 30), time(13, 15),
     ]
+    rows = []
     for day in range(6):  # Mon-Sat
         for period, start in enumerate(period_starts, start=1):
             end_minutes = start.hour * 60 + start.minute + 45
             end = time(end_minutes // 60, end_minutes % 60)
-            slot = TimeSlot(
-                day=day,
-                period=period,
-                start=start,
-                end=end,
-                is_break=(period == 5),  # lunch
+            rows.append(
+                {
+                    "day": day,
+                    "period": period,
+                    "start": start,
+                    "end": end,
+                    "is_break": period == 5,  # lunch
+                }
             )
-            db.add(slot)
-            slots.append(slot)
-    db.flush()
-    return slots
+    result = db.execute(insert(TimeSlot).values(rows).returning(TimeSlot.id))
+    ids = [r[0] for r in result]
+    return [{"id": id_, **row} for id_, row in zip(ids, rows, strict=True)]
 
 
-def seed_teachers(db, rng: random.Random) -> dict[str, list[Teacher]]:
-    by_dept: dict[str, list[Teacher]] = {}
+def seed_teachers(
+    db: Session, rng: random.Random, wednesday_slot_ids: list[int]
+) -> dict[str, list[TeacherRef]]:
+    """The 3 tightly-constrained teachers (PROMPT.md §5: "make 2-3 tightly
+    constrained so the solver has genuine pressure to relieve") are picked by
+    (dept, index-within-dept) before insert -- position 2 of Physics, 0 of
+    Mathematics, 1 of Chemistry -- deliberately not Mrs. Rao, whose load is
+    fixed by the pitch story instead.
+    """
+    tight_positions = {("Physics", 2), ("Mathematics", 0), ("Chemistry", 1)}
+
+    rows: list[dict[str, Any]] = []
     code_n = 1
     for dept in DEPARTMENTS:
-        teachers = []
         if dept == "Physics":
             names = PHYSICS_NAMES
         else:
             names = [f"{rng.choice(FIRST_NAMES)} {rng.choice(LAST_NAMES)}" for _ in range(5)]
-        for name in names:
-            t = Teacher(
-                name=name,
-                code=f"T{code_n:03d}",
-                subjects=[dept],
-                max_periods_per_week=28,
-                max_periods_per_day=6,
-                unavailable_slots=[],
-                preferred_slots=[],
-                phone=f"9{rng.randint(100000000, 999999999)}",
-                dept=dept,
+        for idx, name in enumerate(names):
+            is_tight = (dept, idx) in tight_positions
+            rows.append(
+                {
+                    "name": name,
+                    "code": f"T{code_n:03d}",
+                    "subjects": [dept],
+                    "max_periods_per_week": 10 if is_tight else 28,
+                    "max_periods_per_day": 6,
+                    "unavailable_slots": wednesday_slot_ids if is_tight else [],
+                    "preferred_slots": [],
+                    "phone": f"9{rng.randint(100000000, 999999999)}",
+                    "dept": dept,
+                }
             )
-            db.add(t)
-            teachers.append(t)
             code_n += 1
-        by_dept[dept] = teachers
-    db.flush()
 
-    # 3 tightly constrained teachers, deliberately not Mrs. Rao (PROMPT.md §5: "make
-    # 2-3 tightly constrained so the solver has genuine pressure to relieve").
-    tight = [by_dept["Physics"][2], by_dept["Mathematics"][0], by_dept["Chemistry"][1]]
-    for t in tight:
-        t.max_periods_per_week = 10
-        # Unavailable every Wednesday (day=2).
-        t.unavailable_slots = []  # filled in after time slots exist; see seed_main
+    result = db.execute(insert(Teacher).values(rows).returning(Teacher.id))
+    ids = [r[0] for r in result]
 
+    by_dept: dict[str, list[TeacherRef]] = {}
+    for id_, row in zip(ids, rows, strict=True):
+        ref = TeacherRef(
+            id=id_, name=row["name"], dept=row["dept"],
+            max_periods_per_week=row["max_periods_per_week"],
+        )
+        by_dept.setdefault(row["dept"], []).append(ref)
     return by_dept
 
 
 def seed_assignments(
-    db,
-    sections: list[ClassSection],
-    subjects: dict[str, Subject],
-    teachers_by_dept: dict[str, list[Teacher]],
+    db: Session,
+    sections: list[SectionRef],
+    subjects: dict[str, SubjectRef],
+    teachers_by_dept: dict[str, list[TeacherRef]],
 ) -> None:
-    from app.db.models import Assignment
-
     sections_by_name = {f"{s.grade}-{s.section}": s for s in sections}
     rao = teachers_by_dept["Physics"][0]
     preassigned_physics = {
@@ -276,6 +311,7 @@ def seed_assignments(
         sections_by_name["11-C"].id: rao,
     }
 
+    rows = []
     for subj_name, subject in subjects.items():
         dept_teachers = teachers_by_dept[subj_name]
         running_load = {t.id: 0 for t in dept_teachers}
@@ -286,7 +322,7 @@ def seed_assignments(
             if sec.id in preassigned:
                 t = preassigned[sec.id]
                 running_load[t.id] += subject.weekly_periods
-                db.add(Assignment(class_id=sec.id, subject_id=subject.id, teacher_id=t.id))
+                rows.append({"class_id": sec.id, "subject_id": subject.id, "teacher_id": t.id})
             else:
                 ordered_sections.append(sec)
 
@@ -302,49 +338,50 @@ def seed_assignments(
             if chosen is None:
                 chosen = min(dept_teachers, key=lambda t: running_load[t.id])
             running_load[chosen.id] += subject.weekly_periods
-            db.add(Assignment(class_id=sec.id, subject_id=subject.id, teacher_id=chosen.id))
-    db.flush()
+            rows.append({"class_id": sec.id, "subject_id": subject.id, "teacher_id": chosen.id})
+
+    db.execute(insert(Assignment).values(rows))
 
 
-def seed_students(db, sections: list[ClassSection], rng: random.Random) -> list[Student]:
-    students = []
+def seed_students(db: Session, sections: list[SectionRef], rng: random.Random) -> list[dict]:
+    rows = []
     admission_seq = 1
     for sec in sections:
         for roll in range(1, sec.strength + 1):
             first = rng.choice(FIRST_NAMES)
             last = rng.choice(LAST_NAMES)
-            name = f"{first} {last}"
             g_first = rng.choice(FIRST_NAMES)
             admission_no = f"ADM{admission_seq:05d}"
-            student = Student(
-                admission_no=admission_no,
-                name=name,
-                class_id=sec.id,
-                roll_no=roll,
-                guardian_name=f"{g_first} {last}",
-                guardian_phone=f"9{rng.randint(100000000, 999999999)}",
-                qr_token=qr_token_for(admission_no),
-                photo_url=None,
+            rows.append(
+                {
+                    "admission_no": admission_no,
+                    "name": f"{first} {last}",
+                    "class_id": sec.id,
+                    "roll_no": roll,
+                    "guardian_name": f"{g_first} {last}",
+                    "guardian_phone": f"9{rng.randint(100000000, 999999999)}",
+                    "qr_token": qr_token_for(admission_no),
+                    "photo_url": None,
+                }
             )
-            db.add(student)
-            students.append(student)
             admission_seq += 1
-    db.flush()
-    return students
+    result = db.execute(insert(Student).values(rows).returning(Student.id))
+    ids = [r[0] for r in result]
+    return [{"id": id_, **row} for id_, row in zip(ids, rows, strict=True)]
 
 
-def pick_cliff_students(students: list[Student], rng: random.Random) -> list[int]:
+def pick_cliff_students(students: list[dict], rng: random.Random) -> list[int]:
     """The 6 students deliberately trending toward the 75% attendance cliff.
     Pure — no DB access — so callers can commit core people data (and create the
     demo users that reference these ids) before the slow attendance bulk load runs.
     """
-    return [s.id for s in rng.sample(students, 6)]
+    return [s["id"] for s in rng.sample(students, 6)]
 
 
 def seed_attendance(
-    db,
-    students: list[Student],
-    sections: list[ClassSection],
+    db: Session,
+    students: list[dict],
+    sections: list[SectionRef],
     cliff_ids: set[int],
     rng: random.Random,
 ) -> None:
@@ -366,7 +403,7 @@ def seed_attendance(
         is_last_week = day >= last_week_start
 
         for student in students:
-            if student.id in cliff_ids and is_last_week:
+            if student["id"] in cliff_ids and is_last_week:
                 present_prob = 0.15  # forces "6 students drop below 75% this week"
             else:
                 present_prob = 0.94
@@ -374,7 +411,7 @@ def seed_attendance(
                     present_prob -= 0.06
                 if is_festival_week:
                     present_prob -= 0.15
-                if is_flu_week and student.class_id == flu_section.id:
+                if is_flu_week and student["class_id"] == flu_section.id:
                     present_prob -= 0.35
 
             draw = rng.random()
@@ -398,7 +435,7 @@ def seed_attendance(
 
             records.append(
                 {
-                    "student_id": student.id,
+                    "student_id": student["id"],
                     "date": day,
                     "status": status,
                     "method": method,
@@ -420,7 +457,7 @@ def seed_attendance(
     db.flush()
 
 
-def seed_flavor_data(db, teachers_by_dept: dict[str, list[Teacher]]) -> None:
+def seed_flavor_data(db: Session, teachers_by_dept: dict[str, list[TeacherRef]]) -> None:
     """The one unresolved absence meant to be discovered live during the demo
     (Mrs. Rao's own absence is triggered live via POST /timetable/absence, not
     pre-seeded — this is a *different* teacher, dated yesterday, so it never
@@ -447,7 +484,7 @@ def seed_flavor_data(db, teachers_by_dept: dict[str, list[Teacher]]) -> None:
 
 
 def seed_teacher_absence_history(
-    db, teachers_by_dept: dict[str, list[Teacher]], rng: random.Random
+    db: Session, teachers_by_dept: dict[str, list[TeacherRef]], rng: random.Random
 ) -> None:
     """90 days of resolved TeacherAbsence rows, ending the day before
     ANCHOR_DATE. PROMPT.md §6.5's staffing forecast needs a real time series to
@@ -495,11 +532,10 @@ def seed_teacher_absence_history(
                 )
     if records:
         db.execute(insert(TeacherAbsence).values(records))
-        db.commit()
 
 
 def seed_users(
-    db, teachers_by_dept: dict[str, list[Teacher]], cliff_student_ids: list[int]
+    db: Session, teachers_by_dept: dict[str, list[TeacherRef]], cliff_student_ids: list[int]
 ) -> None:
     rao = teachers_by_dept["Physics"][0]
     parent_student_id = cliff_student_ids[0]
@@ -509,15 +545,16 @@ def seed_users(
         UserRole.teacher: rao.id,
         UserRole.parent: parent_student_id,
     }
-    for email, role in DEMO_USERS:
-        db.add(
-            User(
-                email=email,
-                password_hash=demo_password_hash,
-                role=role,
-                linked_id=links[role],
-            )
-        )
+    rows = [
+        {
+            "email": email,
+            "password_hash": demo_password_hash,
+            "role": role,
+            "linked_id": links[role],
+        }
+        for email, role in DEMO_USERS
+    ]
+    db.execute(insert(User).values(rows))
 
 
 def main() -> None:
@@ -526,20 +563,12 @@ def main() -> None:
     try:
         wipe(db)
         seed_school(db)
-        rooms = seed_rooms(db)
+        room_count = seed_rooms(db)
         subjects = seed_subjects(db)
         sections = seed_sections(db)
         time_slots = seed_time_slots(db)
-        teachers_by_dept = seed_teachers(db, rng)
-
-        wednesday_slot_ids = [s.id for s in time_slots if s.day == 2 and not s.is_break]
-        tight = [
-            teachers_by_dept["Physics"][2],
-            teachers_by_dept["Mathematics"][0],
-            teachers_by_dept["Chemistry"][1],
-        ]
-        for t in tight:
-            t.unavailable_slots = wednesday_slot_ids
+        wednesday_slot_ids = [s["id"] for s in time_slots if s["day"] == 2 and not s["is_break"]]
+        teachers_by_dept = seed_teachers(db, rng, wednesday_slot_ids)
 
         seed_assignments(db, sections, subjects, teachers_by_dept)
         students = seed_students(db, sections, rng)
@@ -551,7 +580,7 @@ def main() -> None:
         print(
             f"Core data committed: {len(sections)} sections, "
             f"{sum(len(v) for v in teachers_by_dept.values())} teachers, "
-            f"{len(students)} students, {len(rooms)} rooms, {len(time_slots)} time slots."
+            f"{len(students)} students, {room_count} rooms, {len(time_slots)} time slots."
         )
 
         # Slowest part (~46k rows) — committed in its own chunks (see

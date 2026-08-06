@@ -24,7 +24,7 @@ appears → one tap → grid rewrites → parents notified. Under 8 MB._
 > | Live app | **https://shaala-os.vercel.app** |
 > | API | https://shaala-os-api.onrender.com (`/health`, `/ws/events`) |
 > | Demo logins | Tap "Continue as Admin / Teacher / Parent" on the login screen — no password needed. (Direct: `POST /auth/demo-login?role=admin\|teacher\|parent`) |
-> | Reset demo data | `POST /demo/reset` — **not built yet, arrives in Phase 4.** For now the seed is static; re-run `make seed` against the target database to restore it. |
+> | Reset demo data | `POST /demo/reset`, or the reset icon in the app header. |
 >
 > Render's free tier sleeps after inactivity — the first request after a while may
 > take a few seconds to wake up.
@@ -114,11 +114,14 @@ weakness. Updated at the end of every phase.
 | Foundation — data model, fixed-seed data, JWT + 3 demo logins, deploy | ✅ Phase 1 done |
 | Flutter shell — theme, nav rail, WS-driven Riverpod, People (read-only) | ✅ Phase 1 done |
 | Timetable solver — CP-SAT, explain-any-cell, drag-and-drop validation | ✅ works locally (~8s, verified); ⚠️ **"Generate" doesn't complete on the live deployed URL** — Render's free-tier RAM can't fit the solve, root-caused (see PROGRESS.md), fix deferred to Phase 5/6 |
-| Substitute repair algorithm | ✅ built + tested; live demo wiring is Phase 4 |
+| Substitute repair algorithm | ✅ Phase 4: wired end to end (`POST /timetable/absence` + `/substitute`), verified live — marked a teacher absent, saw the real uncovered periods, assigned all of them, watched the Action Center card clear itself |
 | AI document reader — upload/bulk/"Try a sample", extract, review UI with bbox + confidence, commit to real rows | ✅ Phase 3 done, verified live on the deployed URL (fixture provider tested end to end; Gemini provider built + verified against current API docs, not yet exercised live — no key in this session) |
-| Proactive Action Center | ⏳ Not started — Phase 4 |
-| QR attendance / staffing forecast | ⏳ Not started — Phase 4 |
-| Group-photo attendance | ⏳ Optional stretch — only if Phase 4 finishes early, fixture-backed on the deployed demo, never `dlib`/`face_recognition` in production |
+| Proactive Action Center — 6 real signal rules, one-tap resolve/dismiss, live bell badge | ✅ Phase 4 done, verified live |
+| Notification Outbox — real drafted messages, never sent | ✅ Phase 4 done, verified live |
+| QR attendance kiosk + ID cards + manual roll call | ✅ Phase 4 done, verified live (including the cross-device moment: a scan from a second client updated a still-open browser tab's counter with no local action) |
+| Staffing forecast + backtest chart | ✅ Phase 4 done — backend fully tested and curl-verified; the Flutter chart itself was verified statically only (clean analyze + build) after browser click automation stopped responding mid-session, pending a live visual pass |
+| `POST /demo/reset` + header button | ✅ Phase 4 done — backend tested and timed (3.87s, budget is 15s); the button itself verified statically only, same tooling gap as above |
+| Group-photo attendance | ⏳ Optional stretch — didn't build it this session (Phase 4 had enough scope); returns a clear 501, not a silent failure |
 | Principal's Weekly Briefing / Ask Shaala (⌘K) | ⏳ Phase 5 stretch only |
 
 ---

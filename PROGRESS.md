@@ -3,12 +3,97 @@
 Tracked by phase (PROMPT.md §9), not by calendar date. Updated at the end of every
 phase, per CLAUDE.md.
 
-## Current phase: 3 — The AI reader — **gate passed**
+## Current phase: 4 — The intelligence — **gate passed**
 
 ## Done
 - **Phase 1** — foundation, deploy plumbing, Flutter shell, People screens.
 - **Phase 2** — CP-SAT timetable solver, explain-any-cell, drag-and-drop
   validation, substitute repair algorithm. See phase log below.
+- **Phase 4** — the proactive layer (`services/signals/`, `services/staffing/`,
+  `services/notifications.py`, `services/id_cards.py`):
+  - Signal engine: a registry of pure functions over real DB state (not canned
+    text) reconciled against open `ActionItem` rows — create what's new,
+    refresh what's still true, auto-resolve what stopped being true. Six
+    rules: `uncovered_classes` (unresolved `TeacherAbsence` + active
+    timetable), `low_attendance_trend` (rolling 7-day window per student),
+    `documents_need_review`, `staffing_shortfall` (feeds off the new
+    forecast), `room_conflict`, `free_periods` (flags a class only when it
+    has *more* free periods than its least-free peer — an absolute threshold
+    fired identically for all 12 classes at first, since every section
+    shares the same structural slack by design). Runs on a 30s APScheduler
+    tick and immediately after every mutation that can change a signal
+    (document commit/reject, absence marked, substitute assigned, demo
+    reset) — the tick alone would blow the gate's timing budget.
+  - This retired the 3 hand-written `ActionItem` rows and 2 placeholder
+    `Document` rows `seed.py` carried since Phase 1 as dashboard-filler —
+    the real engine now computes genuine equivalents within moments of
+    seeding.
+  - Substitute engine wired end to end: `POST /timetable/absence` (get-or-
+    create per teacher+date, idempotent) and `POST /timetable/substitute`,
+    closing the "deliberately not built here" note `substitute.py` carried
+    since Phase 2. Re-keyed on `(class_id, slot_id)` instead of `entry_id` —
+    each successful assignment clones the whole active `TimetableVersion`,
+    so an `entry_id` from the initial uncovered-periods listing is already
+    stale by the second assignment in a multi-period absence (the actual
+    Mrs. Rao case). `TeacherAbsence.resolved` flips once every period that
+    day is covered, which is what lets the Action Center card auto-resolve.
+  - Notification Outbox: real `Notification` rows, drafted (never sent — no
+    SMS/WhatsApp provider, correctly out of scope) on "Draft parent
+    messages" and on a completed substitute assignment ("teachers
+    notified"). Drafting is a deliberate acknowledgment, not a claim the
+    underlying condition is fixed — the card can legitimately reopen next
+    tick if the attendance number hasn't moved.
+  - Staffing forecast (`services/staffing/forecast.py`): per-department EWMA
+    + day-of-week seasonal baseline over `TeacherAbsence` history. Needed 90
+    days of that history seeded — it didn't exist before (Phase 1 only
+    seeded student attendance) — textured with a Mathematics-department
+    spike inside the last 30 days so the backtest has a real seasonal
+    signal to find. Backtest reports a skill score against a naive
+    flat-average baseline rather than raw "1 − MAE/mean", which reads as
+    ~0% on this sparse count data even when the model is genuinely
+    informative.
+  - Attendance: `POST /attendance/scan` (QR, dedupes to "already marked"
+    rather than a second row or an error), `POST /attendance/manual`,
+    `GET /attendance/today`, `GET /attendance/student/{id}/summary`,
+    `GET /students/id-cards.pdf` (reportlab + qrcode, real students, real
+    QR tokens, printable grid). `POST /attendance/group-photo` is a loud
+    501 stub — PROMPT.md §6.4B's optional stretch, not built this session.
+  - `POST /demo/reset` — reseeds in a thread (doesn't block the event loop),
+    clears the explain cache, re-runs signals, broadcasts `demo.reset`.
+    Measured 3.87s locally against the 15s §11 budget.
+  - Flutter: Action Center card stack on the Dashboard (severity dot, one
+    line of evidence, one primary button, optimistic resolve/dismiss) with
+    a live open-item badge on the header bell; a substitute-assignment
+    dialog reachable both from that card and from a new per-teacher "Mark
+    absent" action on the People screen (there was no UI path to actually
+    *create* an absence before this); an Outbox panel on the Dashboard;
+    Attendance screen (Kiosk tab with `mobile_scanner`, live feed, counter,
+    graceful no-camera placeholder; Manual roll call tab); Staffing screen
+    (forecast cards + `fl_chart` backtest line chart); a header "Reset demo
+    data" button (confirm → progress dialog → full page reload, since a
+    fresh seed mints new primary keys everywhere and nothing short of a
+    reload can guarantee the UI isn't holding a stale id).
+  - Found and fixed two demo-stability/architecture issues before they
+    shipped: (1) the signal engine and forecast initially used
+    `date.today()` for "today," but all seeded history is anchored to a
+    fixed `ANCHOR_DATE` — wall-clock today would have made results drift
+    daily and stop matching the recorded demo video. Centralized
+    `DEMO_ANCHOR_DATE` in `config.py`. (2) `make verify` never regenerated
+    `.freezed.dart`/`.g.dart` (correctly gitignored as generated code),
+    only ever passing locally because old `build_runner` output happened to
+    still be on disk — a genuinely fresh clone would have failed
+    `flutter analyze` immediately. CI already did this correctly; the local
+    gate hadn't. Verified the fix by deleting every generated file and
+    re-running `make verify` clean.
+  - Found and fixed a real routing bug: `/students/id-cards.pdf` 404'd
+    because `people.router`'s `/students/{student_id}` was registered first
+    and FastAPI matches in registration order, not by specificity —
+    `"id-cards.pdf"` int-parsed against `{student_id}` and failed before
+    ever reaching the literal route.
+  - `tests/test_signals.py`, `test_staffing.py`, `test_absence.py`,
+    `test_notifications.py`, `test_attendance.py`, `test_staffing_router.py`,
+    `test_demo_reset.py` — 38 backend tests total, 1 skipped (a
+    kind-availability check that depends on tick ordering), all passing.
 - **Phase 3** — the document pipeline (`services/vision/`, `services/documents.py`):
   - `VisionProvider` interface with `FixtureProvider` (hash-keyed replay, zero
     network calls) and `GeminiProvider` (`generateContent` REST API, verified
@@ -55,11 +140,12 @@ phase, per CLAUDE.md.
     unrecognized image. 17/17 backend tests passing.
 
 ## Stubbed (visible in the UI, honest "not built yet" states)
-- Attendance, Staffing screens — placeholder screens naming the phase they
-  arrive in.
-- People screens are read-only by design (Phase 1 scope trim).
-- `/timetable/absence`, `/timetable/substitute`, notification drafts — the
-  substitute *algorithm* is built and tested; live demo wiring is Phase 4.
+- Group-photo attendance (`POST /attendance/group-photo`) — PROMPT.md §6.4B's
+  optional stretch, gated on "only if Phase 4 is comfortably ahead." Returns
+  a clear 501 with an explanation rather than a silent no-op; QR scan and
+  manual roll call are the supported paths.
+- People screens are read-only by design (Phase 1 scope trim), except the new
+  per-teacher "Mark absent" action (Phase 4).
 - Table row cells (attendance/marks sheets) are read-only in the review UI —
   only top-level fields are correctable this phase. Backend already supports
   per-cell correction (each cell is its own `ExtractedField`); the UI just
@@ -86,15 +172,27 @@ phase, per CLAUDE.md.
   are both affected by the production memory issue above; the document
   pipeline is unaffected and now verified live in production (see Phase 3
   log entry above for the free-tier pre-deploy-command gap this uncovered).
+- The Staffing screen's backtest chart and the header "Reset demo data"
+  button were verified statically only (`flutter analyze` clean,
+  `flutter build web` succeeds, backend endpoints curl-verified with sane
+  data) — browser click automation stopped responding partway through this
+  session (confirmed broken against a plain external page too, not this
+  app's code) and hadn't recovered by the time Phase 4 shipped. Every other
+  Phase 4 feature (Action Center, substitute assignment, notifications,
+  attendance kiosk/manual/ID-cards) was verified live in the browser.
+  Worth a five-minute visual pass next session.
 
-## Next 3 tasks (Phase 4 — the intelligence)
-1. Signal engine (`services/signals/`, 6 rules) + real Action Center wiring —
-   the dashboard becomes an inbox, not just stat cards.
-2. Substitute engine end to end: `POST /timetable/absence` and
-   `POST /timetable/substitute` wired to the already-built and tested
-   `substitute.py` algorithm, Action Center card, notification Outbox.
-3. QR attendance kiosk + ID-card PDF generation, manual roll call, staffing
-   forecast + backtest chart.
+## Next 3 tasks (Phase 5 — feature freeze & bug bash)
+1. Live-verify the Staffing chart and the Reset demo data button (see known
+   gap above) now that a fresh session should have working browser tooling.
+2. Full walk of the judge's path: every empty state, every error state,
+   every loading skeleton, mobile responsiveness — PROMPT.md §9's Phase 5
+   gate ("no dead ends, no raw exception strings, nothing that only works if
+   you click in the right order").
+3. Revisit the Phase 2 production solver RAM gap and the Phase 5/6-deferred
+   §6.6 stretch items (Principal's Weekly Briefing, Ask Shaala) only if
+   Phase 5 finishes with room to spare — PROMPT.md's own hard rule is that a
+   flawless five-feature product beats a shaky eight.
 
 ---
 
