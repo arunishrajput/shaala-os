@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:web/web.dart' as web;
 
 import '../../core/theme.dart';
 import '../../providers/actions_providers.dart';
@@ -56,6 +57,8 @@ class AppShell extends ConsumerWidget {
             const SizedBox(width: 16),
             const _WsBadge(),
             const SizedBox(width: 16),
+            const _ResetDemoButton(),
+            const SizedBox(width: 8),
             const _ActionBell(),
           ],
         ),
@@ -144,6 +147,74 @@ class _ActionBell extends ConsumerWidget {
         backgroundColor: AppColors.critical,
         child: const Icon(Icons.notifications_none),
       ),
+    );
+  }
+}
+
+class _ResetDemoButton extends ConsumerWidget {
+  const _ResetDemoButton();
+
+  Future<void> _confirmAndReset(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset demo data?'),
+        content: const Text(
+          'Restores the fixed seed dataset — every student, teacher, timetable, '
+          'document, and attendance record. Anything changed this session is lost.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 16),
+              Text('Resetting demo data…'),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await ref.read(demoRepositoryProvider).reset();
+      // Every id in every provider is now potentially stale (new seed run =
+      // new primary keys) -- a full reload is the only way to guarantee
+      // nothing in the UI still points at data that no longer exists.
+      web.window.location.reload();
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Reset failed: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return IconButton(
+      tooltip: 'Reset demo data',
+      onPressed: () => _confirmAndReset(context, ref),
+      icon: const Icon(Icons.restart_alt),
     );
   }
 }

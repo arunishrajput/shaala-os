@@ -261,6 +261,18 @@ class StaffingRepository {
   }
 }
 
+class DemoRepository {
+  DemoRepository(this._client);
+  final ApiClient _client;
+
+  Future<void> reset() async {
+    await _client.dio.post(
+      '/demo/reset',
+      options: Options(sendTimeout: const Duration(seconds: 30), receiveTimeout: const Duration(seconds: 30)),
+    );
+  }
+}
+
 class NotificationsRepository {
   NotificationsRepository(this._client);
   final ApiClient _client;

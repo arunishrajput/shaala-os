@@ -49,6 +49,10 @@ final peopleRepositoryProvider = Provider<PeopleRepository>((ref) {
   return PeopleRepository(ref.watch(apiClientProvider));
 });
 
+final demoRepositoryProvider = Provider<DemoRepository>((ref) {
+  return DemoRepository(ref.watch(apiClientProvider));
+});
+
 // The WebSocket is the single source of truth for "something changed"
 // (PROMPT.md §7.3). Domain providers listen to eventStreamProvider and
 // invalidate themselves once there are domain events to react to (Phase 3+).

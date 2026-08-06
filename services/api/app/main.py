@@ -10,6 +10,7 @@ from app.routers import (
     actions,
     attendance,
     auth,
+    demo,
     documents,
     health,
     notifications,
@@ -65,6 +66,7 @@ app.include_router(people.router)
 app.include_router(timetable.router)
 app.include_router(documents.router)
 app.include_router(actions.router)
+app.include_router(demo.router)
 app.include_router(notifications.router)
 app.include_router(staffing.router)
 app.include_router(ws_router)
