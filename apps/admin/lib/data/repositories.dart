@@ -8,6 +8,7 @@ import 'models/auth_result.dart';
 import 'models/class_section.dart';
 import 'models/document.dart';
 import 'models/notification.dart';
+import 'models/staffing.dart';
 import 'models/student.dart';
 import 'models/teacher.dart';
 import 'models/time_slot_info.dart';
@@ -242,6 +243,21 @@ class AttendanceRepository {
   Future<AttendanceToday> fetchToday() async {
     final resp = await _client.dio.get('/attendance/today');
     return AttendanceToday.fromJson(resp.data as Map<String, dynamic>);
+  }
+}
+
+class StaffingRepository {
+  StaffingRepository(this._client);
+  final ApiClient _client;
+
+  Future<StaffingForecast> fetchForecast({int days = 7}) async {
+    final resp = await _client.dio.get('/staffing/forecast', queryParameters: {'days': days});
+    return StaffingForecast.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<StaffingBacktest> fetchBacktest({int days = 30}) async {
+    final resp = await _client.dio.get('/staffing/backtest', queryParameters: {'days': days});
+    return StaffingBacktest.fromJson(resp.data as Map<String, dynamic>);
   }
 }
 

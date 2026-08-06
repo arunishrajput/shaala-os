@@ -14,6 +14,7 @@ from app.routers import (
     health,
     notifications,
     people,
+    staffing,
     timetable,
 )
 from app.services.signals import rules  # noqa: F401 -- registers the @signal rules on import
@@ -65,4 +66,5 @@ app.include_router(timetable.router)
 app.include_router(documents.router)
 app.include_router(actions.router)
 app.include_router(notifications.router)
+app.include_router(staffing.router)
 app.include_router(ws_router)

@@ -9,8 +9,8 @@ import '../features/dashboard/dashboard_screen.dart';
 import '../features/documents/documents_screen.dart';
 import '../features/people/class_students_screen.dart';
 import '../features/people/people_screen.dart';
+import '../features/staffing/staffing_screen.dart';
 import '../features/timetable/timetable_screen.dart';
-import 'stub_screen.dart';
 
 import '../providers/core_providers.dart';
 
@@ -58,11 +58,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(
-            path: '/staffing',
-            builder: (context, state) =>
-                const StubScreen(title: 'Staffing Forecast', phase: 'Phase 4'),
-          ),
+          GoRoute(path: '/staffing', builder: (context, state) => const StaffingScreen()),
         ],
       ),
     ],
