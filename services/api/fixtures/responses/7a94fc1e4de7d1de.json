@@ -1,0 +1,74 @@
+{
+  "doc_type": "admission_form",
+  "doc_type_confidence": 0.97,
+  "fields": [
+    {
+      "name": "student_name",
+      "value": "Ananya Verma",
+      "confidence": 0.96,
+      "bbox": [
+        0.3556,
+        0.2086,
+        0.5467,
+        0.2414
+      ]
+    },
+    {
+      "name": "admission_no",
+      "value": "ADM09051",
+      "confidence": 0.95,
+      "bbox": [
+        0.3556,
+        0.2871,
+        0.5044,
+        0.3129
+      ]
+    },
+    {
+      "name": "class_label",
+      "value": "9-A",
+      "confidence": 0.93,
+      "bbox": [
+        0.3556,
+        0.3657,
+        0.3989,
+        0.3914
+      ]
+    },
+    {
+      "name": "roll_no",
+      "value": "51",
+      "confidence": 0.9,
+      "bbox": [
+        0.3556,
+        0.4443,
+        0.3889,
+        0.47
+      ]
+    },
+    {
+      "name": "guardian_name",
+      "value": "Rajesh Verma",
+      "confidence": 0.88,
+      "bbox": [
+        0.3556,
+        0.5214,
+        0.5344,
+        0.5557
+      ]
+    },
+    {
+      "name": "guardian_phone",
+      "value": "98123456xx",
+      "confidence": 0.6,
+      "bbox": [
+        0.3556,
+        0.6014,
+        0.5178,
+        0.6271
+      ]
+    }
+  ],
+  "rows": [],
+  "warnings": []
+}

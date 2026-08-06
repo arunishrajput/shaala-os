@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, health, people, timetable
+from app.routers import auth, documents, health, people, timetable
 from app.ws.routes import router as ws_router
 
 app = FastAPI(title="Shaala OS API")
@@ -19,4 +19,5 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(people.router)
 app.include_router(timetable.router)
+app.include_router(documents.router)
 app.include_router(ws_router)

@@ -222,7 +222,10 @@ class Document(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[str] = mapped_column(String(50))
-    original_url: Mapped[str] = mapped_column(String(500))
+    # A data: URI (base64), not a blob-storage URL — Render's free tier has no
+    # persistent disk, so anything written to local disk is lost on every
+    # redeploy. Postgres (Neon) does persist, so the image lives here instead.
+    original_url: Mapped[str] = mapped_column(Text)
     status: Mapped[DocumentStatus] = mapped_column(
         Enum(DocumentStatus, name="document_status"), default=DocumentStatus.pending
     )

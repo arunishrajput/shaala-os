@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -7,6 +9,13 @@ from passlib.context import CryptContext
 from app.config import settings
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def qr_token_for(admission_no: str) -> str:
+    """Shared by seed.py (initial students) and the admission_form commit path
+    (Phase 3) so every student's QR token is derived the same, stable way."""
+    key = settings.jwt_secret.encode() or b"dev-only-fixed-key"
+    return hmac.new(key, admission_no.encode(), hashlib.sha256).hexdigest()[:20]
 
 
 def hash_password(password: str) -> str:

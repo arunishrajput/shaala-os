@@ -1,0 +1,96 @@
+{
+  "doc_type": "marks_sheet",
+  "doc_type_confidence": 0.9,
+  "fields": [
+    {
+      "name": "class_label",
+      "value": "7-B",
+      "confidence": 0.88,
+      "bbox": [
+        0.3556,
+        0.2086,
+        0.3978,
+        0.2343
+      ]
+    },
+    {
+      "name": "subject",
+      "value": "Mathematics",
+      "confidence": 0.85,
+      "bbox": [
+        0.3556,
+        0.2857,
+        0.5267,
+        0.3129
+      ]
+    },
+    {
+      "name": "term",
+      "value": "Term 1",
+      "confidence": 0.8,
+      "bbox": [
+        0.3556,
+        0.3657,
+        0.4478,
+        0.3914
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "roll_no": "1",
+      "name": "Kabir Singh",
+      "marks": "87",
+      "confidence": 0.9,
+      "bbox": [
+        [
+          0.0556,
+          0.54,
+          0.0722,
+          0.5657
+        ],
+        [
+          0.2222,
+          0.5386,
+          0.3733,
+          0.5729
+        ],
+        [
+          0.6111,
+          0.54,
+          0.6444,
+          0.5657
+        ]
+      ]
+    },
+    {
+      "roll_no": "2",
+      "name": "Meera Rao",
+      "marks": "92",
+      "confidence": 0.85,
+      "bbox": [
+        [
+          0.0556,
+          0.6043,
+          0.0722,
+          0.63
+        ],
+        [
+          0.2222,
+          0.6043,
+          0.3633,
+          0.63
+        ],
+        [
+          0.6111,
+          0.6043,
+          0.6444,
+          0.63
+        ]
+      ]
+    }
+  ],
+  "warnings": [
+    "Marks are extracted for review only -- Shaala OS does not store grades or generate report cards (deliberately out of scope, see README roadmap)."
+  ]
+}

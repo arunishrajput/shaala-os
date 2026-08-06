@@ -12,14 +12,11 @@ grade 6 gets one section, grades 7-10 get two (A/B), grade 11 gets three (A/B/C)
 exactly 12 sections, and 9-A / 10-B / 11-C all exist for the Mrs. Rao story.
 """
 
-import hashlib
-import hmac
 import random
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import insert, text
 
-from app.config import settings
 from app.db.models import (
     ActionItem,
     ActionSeverity,
@@ -42,7 +39,7 @@ from app.db.models import (
     UserRole,
 )
 from app.db.session import SessionLocal
-from app.security import hash_password
+from app.security import hash_password, qr_token_for
 
 SEED = 42
 
@@ -142,11 +139,6 @@ TABLES_IN_DELETE_ORDER = [
     "users",
     "schools",
 ]
-
-
-def qr_token_for(admission_no: str) -> str:
-    key = settings.jwt_secret.encode() or b"dev-only-fixed-key"
-    return hmac.new(key, admission_no.encode(), hashlib.sha256).hexdigest()[:20]
 
 
 def wipe(db) -> None:

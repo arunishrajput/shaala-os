@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/login_screen.dart';
 import '../features/dashboard/app_shell.dart';
 import '../features/dashboard/dashboard_screen.dart';
+import '../features/documents/documents_screen.dart';
 import '../features/people/class_students_screen.dart';
 import '../features/people/people_screen.dart';
 import '../features/timetable/timetable_screen.dart';
@@ -38,11 +39,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/dashboard', builder: (context, state) => const DashboardScreen()),
           GoRoute(path: '/timetable', builder: (context, state) => const TimetableScreen()),
-          GoRoute(
-            path: '/documents',
-            builder: (context, state) =>
-                const StubScreen(title: 'Documents', phase: 'Phase 3'),
-          ),
+          GoRoute(path: '/documents', builder: (context, state) => const DocumentsScreen()),
           GoRoute(
             path: '/attendance',
             builder: (context, state) =>

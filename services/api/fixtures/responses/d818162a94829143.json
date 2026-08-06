@@ -1,0 +1,52 @@
+{
+  "doc_type": "leave_application",
+  "doc_type_confidence": 0.95,
+  "fields": [
+    {
+      "name": "teacher_name",
+      "value": "Priya Nair",
+      "confidence": 0.93,
+      "bbox": [
+        0.3556,
+        0.2086,
+        0.48,
+        0.2414
+      ]
+    },
+    {
+      "name": "teacher_code",
+      "value": "T005",
+      "confidence": 0.91,
+      "bbox": [
+        0.3556,
+        0.2871,
+        0.4233,
+        0.3129
+      ]
+    },
+    {
+      "name": "leave_date",
+      "value": "2026-08-10",
+      "confidence": 0.89,
+      "bbox": [
+        0.3556,
+        0.3657,
+        0.5044,
+        0.3914
+      ]
+    },
+    {
+      "name": "reason",
+      "value": "Medical - fever",
+      "confidence": 0.75,
+      "bbox": [
+        0.3556,
+        0.4414,
+        0.55,
+        0.47
+      ]
+    }
+  ],
+  "rows": [],
+  "warnings": []
+}

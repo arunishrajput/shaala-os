@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../core/api_client.dart';
 import 'models/auth_result.dart';
 import 'models/class_section.dart';
+import 'models/document.dart';
 import 'models/student.dart';
 import 'models/teacher.dart';
 import 'models/time_slot_info.dart';
@@ -100,6 +102,70 @@ class TimetableRepository {
     return (resp.data as List)
         .map((e) => TimeSlotInfo.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+}
+
+class DocumentsRepository {
+  DocumentsRepository(this._client);
+  final ApiClient _client;
+
+  Future<List<SampleInfo>> fetchSamples() async {
+    final resp = await _client.dio.get('/documents/samples');
+    return (resp.data as List).map((e) => SampleInfo.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<DocumentDetail> trySample(String docType) async {
+    final resp = await _client.dio.post('/documents/samples/$docType');
+    return DocumentDetail.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<List<DocumentSummary>> upload(List<PlatformFile> files) async {
+    final form = FormData();
+    for (final f in files) {
+      if (f.bytes == null) continue;
+      form.files.add(
+        MapEntry('files', MultipartFile.fromBytes(f.bytes!, filename: f.name)),
+      );
+    }
+    final resp = await _client.dio.post('/documents/upload', data: form);
+    final list = (resp.data as Map<String, dynamic>)['documents'] as List;
+    return list.map((e) => DocumentSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<DocumentSummary>> fetchDocuments({String? status}) async {
+    final resp = await _client.dio.get(
+      '/documents',
+      queryParameters: {'status': ?status},
+    );
+    return (resp.data as List)
+        .map((e) => DocumentSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<DocumentDetail> fetchDocument(int id) async {
+    final resp = await _client.dio.get('/documents/$id');
+    return DocumentDetail.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<Map<String, dynamic>> commit(
+    int id,
+    List<({int fieldId, String correctedValue})> corrections,
+  ) async {
+    final resp = await _client.dio.post(
+      '/documents/$id/commit',
+      data: {
+        'corrections': [
+          for (final c in corrections)
+            {'field_id': c.fieldId, 'corrected_value': c.correctedValue},
+        ],
+      },
+    );
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<DocumentSummary> reject(int id) async {
+    final resp = await _client.dio.post('/documents/$id/reject');
+    return DocumentSummary.fromJson(resp.data as Map<String, dynamic>);
   }
 }
 

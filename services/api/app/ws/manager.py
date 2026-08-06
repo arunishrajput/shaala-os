@@ -6,6 +6,7 @@ once Phase 3/4 features exist to emit them.
 import json
 
 from fastapi import WebSocket
+from fastapi.encoders import jsonable_encoder
 
 
 class ConnectionManager:
@@ -21,7 +22,9 @@ class ConnectionManager:
             self._connections.remove(ws)
 
     async def broadcast(self, event_type: str, payload: dict) -> None:
-        message = json.dumps({"type": event_type, "payload": payload})
+        # jsonable_encoder, not raw json.dumps -- payloads carry datetimes,
+        # enums, etc. straight from the ORM (see Document.uploaded_at).
+        message = json.dumps(jsonable_encoder({"type": event_type, "payload": payload}))
         dead: list[WebSocket] = []
         for ws in self._connections:
             try:

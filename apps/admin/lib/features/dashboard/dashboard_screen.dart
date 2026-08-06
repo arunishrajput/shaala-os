@@ -11,6 +11,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final teachers = ref.watch(teachersProvider);
     final classes = ref.watch(classSectionsProvider);
+    final students = ref.watch(studentsCountProvider);
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -29,6 +30,10 @@ class DashboardScreen extends ConsumerWidget {
             spacing: 16,
             runSpacing: 16,
             children: [
+              _StatCard(
+                label: 'Students',
+                value: students.whenOrNull(data: (d) => d.toString()) ?? '—',
+              ),
               _StatCard(
                 label: 'Teachers',
                 value: teachers.whenOrNull(data: (d) => d.length.toString()) ?? '—',
@@ -58,7 +63,16 @@ class _StatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(value, style: Theme.of(context).textTheme.headlineMedium),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: Text(
+                value,
+                key: ValueKey(value),
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+            ),
             const SizedBox(height: 4),
             Text(label, style: const TextStyle(color: AppColors.textSecondary)),
           ],

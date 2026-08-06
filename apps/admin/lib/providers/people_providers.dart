@@ -30,3 +30,21 @@ final classSectionsProvider = AsyncNotifierProvider<ClassSectionsNotifier, List<
 final studentsByClassProvider = FutureProvider.family<List<Student>, int>((ref, classId) {
   return ref.read(peopleRepositoryProvider).fetchStudents(classId: classId);
 });
+
+/// The WebSocket is the single source of truth for "something changed"
+/// (PROMPT.md §7.3) — this self-invalidates on document.committed so the
+/// dashboard's student count reacts live when an admission form is committed,
+/// without the dashboard screen needing to know why.
+class StudentsCountNotifier extends AsyncNotifier<int> {
+  @override
+  Future<int> build() {
+    ref.listen(eventStreamProvider, (_, next) {
+      if (next.value?.type == 'document.committed') ref.invalidateSelf();
+    });
+    return ref.read(peopleRepositoryProvider).fetchStudents().then((s) => s.length);
+  }
+}
+
+final studentsCountProvider = AsyncNotifierProvider<StudentsCountNotifier, int>(
+  StudentsCountNotifier.new,
+);
