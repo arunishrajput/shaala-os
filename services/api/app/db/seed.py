@@ -31,7 +31,6 @@ from app.config import DEMO_ANCHOR_DATE
 from app.db.models import (
     Assignment,
     AttendanceMethod,
-    AttendanceRecord,
     AttendanceStatus,
     ClassSection,
     Room,
@@ -445,16 +444,31 @@ def seed_attendance(
                 }
             )
 
-    # Explicit multi-row VALUES batches, not one execute() per row — over a
-    # high-latency connection (e.g. a remote managed Postgres), relying on the
-    # driver's default executemany behavior for ~46k rows made this pathologically
-    # slow (one network round trip per row).
-    chunk_size = 2000
-    for i in range(0, len(records), chunk_size):
-        chunk = records[i : i + chunk_size]
-        db.execute(insert(AttendanceRecord).values(chunk))
-        db.commit()
-    db.flush()
+    # COPY, not parameterized INSERT — for ~46k rows this is the dominant cost
+    # of a full reset. Empirically measured against the deployed Neon database
+    # (not guessed): chunked multi-row INSERT ... VALUES cost ~3.4ms/row no
+    # matter the chunk size (round trips were never the bottleneck, Neon's
+    # free-tier write throughput was), while COPY's binary-ish wire protocol
+    # measured ~1.1ms/row on the same database — about 3x, since COPY skips
+    # per-row statement parameter binding entirely. Still the single largest
+    # cost in POST /demo/reset; see PROGRESS.md for the full timing writeup.
+    columns = "student_id, date, status, method, marked_at, confidence, source_ref"
+    dbapi_conn = db.connection().connection.dbapi_connection
+    assert dbapi_conn is not None  # the session's connection is always live here
+    with dbapi_conn.cursor().copy(f"COPY attendance_records ({columns}) FROM STDIN") as copy:
+        for r in records:
+            copy.write_row(
+                (
+                    r["student_id"],
+                    r["date"],
+                    r["status"].value,
+                    r["method"].value,
+                    r["marked_at"],
+                    r["confidence"],
+                    r["source_ref"],
+                )
+            )
+    db.commit()
 
 
 def seed_flavor_data(db: Session, teachers_by_dept: dict[str, list[TeacherRef]]) -> None:
