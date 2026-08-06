@@ -46,6 +46,9 @@ dependencies:
   google_fonts: ^6.2.1
   mobile_scanner: ^6.0.2
   file_picker: ^8.1.4
+  # Web-only window.open (ID card PDF download) -- dart:html is deprecated in
+  # favor of this + dart:js_interop, and the lints enforce it.
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

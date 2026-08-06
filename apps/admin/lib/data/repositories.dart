@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../core/api_client.dart';
 import 'models/action_item.dart';
+import 'models/attendance_record.dart';
 import 'models/auth_result.dart';
 import 'models/class_section.dart';
 import 'models/document.dart';
@@ -218,6 +219,29 @@ class ActionsRepository {
   Future<int> draftMessages(int id) async {
     final resp = await _client.dio.post('/actions/$id/draft-messages');
     return (resp.data as Map<String, dynamic>)['drafted'] as int;
+  }
+}
+
+class AttendanceRepository {
+  AttendanceRepository(this._client);
+  final ApiClient _client;
+
+  Future<Map<String, dynamic>> scan(String qrToken) async {
+    final resp = await _client.dio.post('/attendance/scan', data: {'qr_token': qrToken});
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<AttendanceRecordModel> manual(int studentId, String status) async {
+    final resp = await _client.dio.post(
+      '/attendance/manual',
+      data: {'student_id': studentId, 'status': status},
+    );
+    return AttendanceRecordModel.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<AttendanceToday> fetchToday() async {
+    final resp = await _client.dio.get('/attendance/today');
+    return AttendanceToday.fromJson(resp.data as Map<String, dynamic>);
   }
 }
 

@@ -6,7 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db.session import SessionLocal
-from app.routers import actions, auth, documents, health, notifications, people, timetable
+from app.routers import (
+    actions,
+    attendance,
+    auth,
+    documents,
+    health,
+    notifications,
+    people,
+    timetable,
+)
 from app.services.signals import rules  # noqa: F401 -- registers the @signal rules on import
 from app.services.signals.registry import run_signals
 from app.ws.routes import router as ws_router
@@ -45,6 +54,12 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+# attendance before people: both declare a /students/... path, and FastAPI
+# matches in registration order, not by specificity. attendance's literal
+# /students/id-cards.pdf must be tried before people's parameterized
+# /students/{student_id} or the latter swallows it (int-parses "id-cards.pdf",
+# 422s) — found by the id-cards.pdf test actually exercising the route.
+app.include_router(attendance.router)
 app.include_router(people.router)
 app.include_router(timetable.router)
 app.include_router(documents.router)

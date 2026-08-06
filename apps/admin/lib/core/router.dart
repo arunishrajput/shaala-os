@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/attendance/attendance_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/dashboard/app_shell.dart';
 import '../features/dashboard/dashboard_screen.dart';
@@ -42,8 +43,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/documents', builder: (context, state) => const DocumentsScreen()),
           GoRoute(
             path: '/attendance',
-            builder: (context, state) =>
-                const StubScreen(title: 'Attendance', phase: 'Phase 4'),
+            builder: (context, state) => const AttendanceScreen(),
           ),
           GoRoute(
             path: '/people',
