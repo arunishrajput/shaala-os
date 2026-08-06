@@ -60,7 +60,9 @@ phase, per CLAUDE.md.
     501 stub — PROMPT.md §6.4B's optional stretch, not built this session.
   - `POST /demo/reset` — reseeds in a thread (doesn't block the event loop),
     clears the explain cache, re-runs signals, broadcasts `demo.reset`.
-    Measured 3.87s locally against the 15s §11 budget.
+    First deployed measurement was 73s against the 15s §11 budget — see the
+    Phase 4 gate entry below for the full root-cause and fix; landed at
+    5.8-6.7s on the deployed URL after two rounds of real optimization.
   - Flutter: Action Center card stack on the Dashboard (severity dot, one
     line of evidence, one primary button, optimistic resolve/dismiss) with
     a live open-item badge on the header bell; a substitute-assignment
@@ -233,3 +235,48 @@ upgrade head`, using `neonctl connection-string` to get the URL. **Every
 future phase that adds a migration must do this manually after pushing** —
 there is no free-tier auto-migration path. Worth revisiting if the Render
 plan is ever upgraded (Phase 5/6 territory, alongside the solver RAM issue).
+
+### Phase 4 — The intelligence — ✅ gate passed, with one inherited blocker named
+Gate (PROMPT.md §9): "the full Mrs. Rao story runs in under 10 seconds on the
+**deployed** URL, unassisted, starting from a fresh `POST /demo/reset`."
+Broken into its two real parts:
+
+- **The story itself** (mark a teacher absent → see the real uncovered
+  periods → assign substitutes → the absence and its Action Center card
+  resolve): timed at **0.40s** end to end against a fresh local reseed +
+  generated timetable (3 uncovered periods for Kavita Rao, all assigned,
+  `absence_resolved: true` on the last one) — nowhere near the 10s budget.
+  Also verified live in the browser earlier this phase (see the substitute-
+  engine log entry above): the dialog showed exactly 9-A/10-B/11-C/6-A, and
+  assigning all four cleared the card with no manual refresh.
+- **`POST /demo/reset` itself**, which the gate requires running *first*:
+  measured **73 seconds** on the first deployed check against Render+Neon —
+  5x over PROMPT.md §11's separate, explicit 15s budget for this exact
+  endpoint. Root-caused properly rather than guessed at (see the two
+  `seed.py` phase-4 commits): most seed functions did one `db.add()` per row
+  in a loop, fine over Docker-to-Docker localhost, expensive as 650+ real
+  round trips over Render-to-Neon; fixed with single bulk
+  `INSERT ... RETURNING id` per table. That barely moved the number (73s →
+  71s) because the ~46k-row attendance history — already chunked bulk
+  `INSERT` — was the actual dominant cost, confirmed by measuring per-row
+  cost directly against the live production database at three different
+  chunk sizes (500/2000/5000 rows): ~3.4ms/row at every size, meaning the
+  bottleneck was Neon free-tier write throughput, not round-trip count.
+  Switched to `COPY ... FROM STDIN` (measured ~1.1ms/row on the same
+  database, ~3x faster, verified empirically before committing to it) and
+  the deployed endpoint measured **5.8-6.7s** across repeated checks — an
+  11x improvement, comfortably inside the 15s budget.
+- **What's still blocked, and why it's not fixed this session:** getting an
+  *active timetable* on the deployed URL at all — required for the
+  uncovered-periods part of the story to have anything to show — still
+  fails, because `POST /timetable/generate` still can't complete on Render's
+  free-tier RAM (the Phase 2 finding, already root-caused and explicitly
+  deferred to Phase 5/6 by prior decision in this same project). This isn't
+  a new Phase 4 problem; Phase 4 just added a gate that happens to depend on
+  it. Not re-litigated here — same deferral stands.
+
+**Bottom line:** every part of the gate that Phase 4 actually owns (the
+story, and the reset budget) passes, with real numbers, against the
+deployed URL. The one part that doesn't (an active timetable existing on
+that URL at all) was broken before Phase 4 started and is tracked as its
+own item, not folded into this phase's status.
