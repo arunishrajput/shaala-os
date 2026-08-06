@@ -404,7 +404,13 @@ def solve(
                 "conflict exists across teacher/room/slot constraints."
             ],
             solution={},
-            stats={"wall_time_s": round(wall_time, 3), "status": status_name},
+            stats={
+                "wall_time_s": round(wall_time, 3),
+                "status": status_name,
+                "num_branches": solver.num_branches,
+                "num_workers": solver.parameters.num_workers,
+                "cpu_count": os.cpu_count(),
+            },
         )
 
     solution = {key: bool(solver.value(var)) for key, var in build.x.items()}
