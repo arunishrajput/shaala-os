@@ -5,6 +5,8 @@ import 'models/auth_result.dart';
 import 'models/class_section.dart';
 import 'models/student.dart';
 import 'models/teacher.dart';
+import 'models/time_slot_info.dart';
+import 'models/timetable_entry.dart';
 
 class AuthRepository {
   AuthRepository(this._client);
@@ -45,6 +47,58 @@ class PeopleRepository {
     final resp = await _client.dio.get('/classes');
     return (resp.data as List)
         .map((e) => ClassSection.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+}
+
+class TimetableRepository {
+  TimetableRepository(this._client);
+  final ApiClient _client;
+
+  Future<Map<String, dynamic>> generate({Map<String, double>? weights}) async {
+    final resp = await _client.dio.post(
+      '/timetable/generate',
+      data: {'weights': ?weights},
+    );
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<ActiveTimetable> fetchActive({int? classId, int? teacherId}) async {
+    final resp = await _client.dio.get(
+      '/timetable/active',
+      queryParameters: {
+        'class_id': ?classId,
+        'teacher_id': ?teacherId,
+      },
+    );
+    return ActiveTimetable.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<Map<String, dynamic>> explain(int entryId) async {
+    final resp = await _client.dio.get('/timetable/explain/$entryId');
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> validateMove(int entryId, int roomId, int slotId) async {
+    final resp = await _client.dio.post(
+      '/timetable/validate-move',
+      data: {'entry_id': entryId, 'room_id': roomId, 'slot_id': slotId},
+    );
+    return resp.data as Map<String, dynamic>;
+  }
+
+  Future<TimetableEntry> move(int entryId, int roomId, int slotId) async {
+    final resp = await _client.dio.post(
+      '/timetable/move',
+      data: {'entry_id': entryId, 'room_id': roomId, 'slot_id': slotId},
+    );
+    return TimetableEntry.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<List<TimeSlotInfo>> fetchSlots() async {
+    final resp = await _client.dio.get('/timetable/slots');
+    return (resp.data as List)
+        .map((e) => TimeSlotInfo.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 }

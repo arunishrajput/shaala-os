@@ -11,7 +11,7 @@ finalized in Phase 6 (PROMPT.md §10).
 |---|---|---|
 | 0:00 | The pain, one number (45 min → 6 sec) | ⏳ |
 | 0:20 | Paper in: photograph a form, amber low-confidence field, correct it, commit, student appears live; then bulk-upload 15 | ⏳ blocked on Phase 3 |
-| 1:00 | The solver: generate 12 timetables live, show the stats line, click a cell for the explanation, drag into a conflict and watch it refuse with ranked alternatives | ⏳ blocked on Phase 2 |
+| 1:00 | The solver: generate live, show the stats line, click a cell for the explanation, drag into a conflict and watch it refuse with ranked alternatives | ✅ buildable now — Phase 2 done |
 | 1:50 | The hero moment: mark Mrs. Rao absent, Action Center card appears by itself, one tap, grid rewrites, parent messages drafted | ⏳ blocked on Phase 4 |
 | 2:30 | Attendance: scan a QR with a phone while the laptop dashboard is on screen and a counter moves live | ⏳ blocked on Phase 4 |
 | 3:00 | Forecast + one honest limitation stated on screen | ⏳ blocked on Phase 4 |

@@ -66,11 +66,18 @@ _SUBJECT_ROWS = [
     ("English", "ENG", 5, False, False),
     ("Hindi", "HIN", 4, False, False),
     ("Mathematics", "MATH", 6, False, False),
-    ("Physics", "PHY", 5, True, False),
-    ("Chemistry", "CHEM", 5, True, False),
+    # Lab-needing subjects are deliberately light on weekly_periods: with only 3
+    # labs (PROMPT.md §5) shared by all 12 sections, 3 labs x 42 non-break
+    # slots/week = 126 lab-room-slots available. Any higher and demand
+    # (12 x sum(lab subject periods)) provably exceeds supply -- genuinely
+    # infeasible, not just hard. At 3+3+2=8, demand is 96/126 (76% utilization):
+    # tight enough that "2 of 3 labs are busy" (the explain-panel example in
+    # PROMPT.md §6.2) is a real, frequent scenario, not manufactured.
+    ("Physics", "PHY", 3, True, False),
+    ("Chemistry", "CHEM", 3, True, False),
     ("Biology", "BIO", 4, False, False),
     ("Social Studies", "SST", 4, False, False),
-    ("Computer Science", "CS", 3, True, True),
+    ("Computer Science", "CS", 2, True, True),
 ]
 SUBJECT_DEFS = [
     {
@@ -162,7 +169,9 @@ def seed_rooms(db) -> dict[str, Room]:
         db.add(r)
         rooms[r.name] = r
     for name in ["Physics Lab", "Chemistry Lab", "Computer Lab"]:
-        r = Room(name=name, capacity=40, type=RoomType.lab)
+        # Must be >= class strength (50) — a lab smaller than a full class can
+        # never host that class's lab period under this schema (no class-splitting).
+        r = Room(name=name, capacity=60, type=RoomType.lab)
         db.add(r)
         rooms[name] = r
     hall = Room(name="Assembly Hall", capacity=500, type=RoomType.hall)
