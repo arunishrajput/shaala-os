@@ -27,10 +27,17 @@ demo: up seed
 	@echo "Run the Flutter app separately: cd apps/admin && flutter run -d chrome"
 
 # The gate. Nothing is done until this exits 0 (CLAUDE.md).
+# .freezed.dart/.g.dart are gitignored (standard for generated code) -- a
+# fresh clone has none of them, so they must be (re)generated here, not
+# assumed to already exist on disk. CI (.github/workflows/ci.yml) already did
+# this; this target hadn't, and was silently passing locally only because
+# past `dart run build_runner build` runs left generated files on disk.
 verify: up
 	$(API_RUN) ruff check .
 	$(API_RUN) mypy app --ignore-missing-imports
 	$(API_RUN) pytest -q
+	cd apps/admin && flutter pub get
+	cd apps/admin && dart run build_runner build --delete-conflicting-outputs
 	cd apps/admin && flutter analyze
 	cd apps/admin && flutter build web
 

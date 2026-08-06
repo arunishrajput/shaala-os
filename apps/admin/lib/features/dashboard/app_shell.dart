@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../providers/actions_providers.dart';
 import '../../providers/core_providers.dart';
 
 class _NavDestination {
@@ -55,11 +56,7 @@ class AppShell extends ConsumerWidget {
             const SizedBox(width: 16),
             const _WsBadge(),
             const SizedBox(width: 16),
-            IconButton(
-              tooltip: 'Action Center — arrives in Phase 4',
-              onPressed: null,
-              icon: const Icon(Icons.notifications_none),
-            ),
+            const _ActionBell(),
           ],
         ),
       ),
@@ -129,6 +126,25 @@ class _LiveClockState extends State<_LiveClock> {
     final m = _now.minute.toString().padLeft(2, '0');
     final s = _now.second.toString().padLeft(2, '0');
     return Text('$h:$m:$s', style: const TextStyle(color: AppColors.textSecondary));
+  }
+}
+
+class _ActionBell extends ConsumerWidget {
+  const _ActionBell();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(openActionsCountProvider);
+    return IconButton(
+      tooltip: count == 0 ? 'Action Center' : '$count item${count == 1 ? '' : 's'} need attention',
+      onPressed: () => context.go('/dashboard'),
+      icon: Badge(
+        label: Text('$count'),
+        isLabelVisible: count > 0,
+        backgroundColor: AppColors.critical,
+        child: const Icon(Icons.notifications_none),
+      ),
+    );
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../core/api_client.dart';
+import 'models/action_item.dart';
 import 'models/auth_result.dart';
 import 'models/class_section.dart';
 import 'models/document.dart';
@@ -166,6 +167,28 @@ class DocumentsRepository {
   Future<DocumentSummary> reject(int id) async {
     final resp = await _client.dio.post('/documents/$id/reject');
     return DocumentSummary.fromJson(resp.data as Map<String, dynamic>);
+  }
+}
+
+class ActionsRepository {
+  ActionsRepository(this._client);
+  final ApiClient _client;
+
+  Future<List<ActionItemModel>> fetchActions({String? status = 'open'}) async {
+    final resp = await _client.dio.get('/actions', queryParameters: {'status': ?status});
+    return (resp.data as List)
+        .map((e) => ActionItemModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ActionItemModel> resolve(int id) async {
+    final resp = await _client.dio.post('/actions/$id/resolve');
+    return ActionItemModel.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<ActionItemModel> dismiss(int id) async {
+    final resp = await _client.dio.post('/actions/$id/dismiss');
+    return ActionItemModel.fromJson(resp.data as Map<String, dynamic>);
   }
 }
 

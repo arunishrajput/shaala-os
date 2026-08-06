@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../../providers/people_providers.dart';
+import 'action_center.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -21,10 +22,11 @@ class DashboardScreen extends ConsumerWidget {
           Text('Dashboard', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 4),
           const Text(
-            'The Action Center — a prioritized inbox of one-tap decisions — arrives in '
-            'Phase 4. For now: what\'s actually seeded.',
+            'What needs a decision, first.',
             style: TextStyle(color: AppColors.textSecondary),
           ),
+          const SizedBox(height: 20),
+          const ActionCenter(),
           const SizedBox(height: 24),
           Wrap(
             spacing: 16,

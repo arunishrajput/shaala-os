@@ -1,8 +1,20 @@
 import os
+from datetime import date
 
 
 def _split_csv(value: str) -> list[str]:
     return [v.strip() for v in value.split(",") if v.strip()]
+
+
+# The demo's fixed "today" (PROMPT.md §11: "Fixed RNG seed everywhere, so the
+# deployed app looks identical to your video"). seed.py generates 90 days of
+# attendance/absence history ending the day before this date. Every
+# date-relative computation (signals, the staffing forecast, "mark absent
+# today") must anchor to this constant rather than the real wall-clock date,
+# or results silently drift the day after the demo video is recorded. Not
+# env-configurable on purpose — changing it without re-seeding would desync
+# the app from its own data.
+DEMO_ANCHOR_DATE = date(2026, 8, 5)
 
 
 class Settings:

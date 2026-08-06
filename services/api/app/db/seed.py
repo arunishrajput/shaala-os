@@ -13,20 +13,16 @@ exactly 12 sections, and 9-A / 10-B / 11-C all exist for the Mrs. Rao story.
 """
 
 import random
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 
 from sqlalchemy import insert, text
 
+from app.config import DEMO_ANCHOR_DATE
 from app.db.models import (
-    ActionItem,
-    ActionSeverity,
-    ActionStatus,
     AttendanceMethod,
     AttendanceRecord,
     AttendanceStatus,
     ClassSection,
-    Document,
-    DocumentStatus,
     Room,
     RoomType,
     School,
@@ -45,7 +41,9 @@ SEED = 42
 
 # Fixed so re-seeding on a different calendar day still reproduces byte-identical
 # data (PROMPT.md §11: "the deployed app looks identical to your video").
-ANCHOR_DATE = date(2026, 8, 5)
+# Defined in config.py so runtime services (signals, staffing) anchor to the
+# same date instead of drifting with the real wall clock.
+ANCHOR_DATE = DEMO_ANCHOR_DATE
 
 DEPARTMENTS = [
     "English",
@@ -112,6 +110,8 @@ LAST_NAMES = [
 # PROMPT.md §6.2 verbatim ("Mr. Khan is the only free Physics teacher — Ms. Iyer
 # has 11-C now") and the Mrs. Rao pitch story (§1).
 PHYSICS_NAMES = ["Kavita Rao", "Meera Iyer", "Aslam Khan", "Vikram Nair", "Sunita Desai"]
+
+ABSENCE_REASONS = ["Personal leave", "Sick leave", "Medical appointment", "Family emergency"]
 
 DEMO_USERS: list[tuple[str, UserRole]] = [
     ("admin@shaala.demo", UserRole.admin),
@@ -420,67 +420,21 @@ def seed_attendance(
     db.flush()
 
 
-def seed_flavor_data(
-    db,
-    teachers_by_dept: dict[str, list[Teacher]],
-    students: list[Student],
-    cliff_student_ids: list[int],
-) -> None:
-    db.add(
-        ActionItem(
-            kind="low_attendance_trend",
-            severity=ActionSeverity.critical,
-            title="6 students drop below 75% this week",
-            body="6 students across multiple sections fell under 75% attendance this week.",
-            payload={"student_ids": cliff_student_ids},
-            status=ActionStatus.open,
-            primary_action="Draft parent messages",
-        )
-    )
-    db.add(
-        ActionItem(
-            kind="documents_need_review",
-            severity=ActionSeverity.warning,
-            title="2 scanned forms need review",
-            body="2 uploaded documents have low-confidence fields awaiting review.",
-            payload={},
-            status=ActionStatus.open,
-            primary_action="Review now",
-        )
-    )
-    db.add(
-        ActionItem(
-            kind="room_conflict",
-            severity=ActionSeverity.info,
-            title="Chem Lab double-booked Thu P5",
-            body="Two sections are scheduled in the Chemistry Lab at the same time.",
-            payload={},
-            status=ActionStatus.open,
-            primary_action="Resolve",
-        )
-    )
+def seed_flavor_data(db, teachers_by_dept: dict[str, list[Teacher]]) -> None:
+    """The one unresolved absence meant to be discovered live during the demo
+    (Mrs. Rao's own absence is triggered live via POST /timetable/absence, not
+    pre-seeded — this is a *different* teacher, dated yesterday, so it never
+    matches the uncovered_classes signal's "today" filter and just sits as
+    genuine unfinished business).
 
-    # 2 pending documents. original_url points at fixtures that Phase 3 will add —
-    # the vision pipeline itself doesn't exist yet (stubbed loudly, not silently).
-    db.add(
-        Document(
-            type="leave_application",
-            original_url="fixtures/sample_leave_application.jpg",
-            status=DocumentStatus.pending,
-            raw_ai_response=None,
-        )
-    )
-    db.add(
-        Document(
-            type="admission_form",
-            original_url="fixtures/sample_admission_form.jpg",
-            status=DocumentStatus.pending,
-            raw_ai_response=None,
-        )
-    )
-
-    # 1 unresolved absence — a different teacher from Mrs. Rao, whose absence is
-    # meant to be triggered live during the demo (Phase 4), not pre-seeded.
+    Through Phase 3, this function also hand-wrote 3 ActionItem rows and 2
+    placeholder Document rows so the dashboard wasn't empty on first load.
+    Phase 4 built the real signal engine those were standing in for —
+    `run_signals()` runs at app startup and after `POST /demo/reset`, so it
+    now computes genuine equivalents (or better, or none, if conditions
+    don't hold) within moments of seeding. Keeping the hand-written copies
+    would just be dead weight that gets auto-resolved on the very first tick.
+    """
     other_teacher = teachers_by_dept["Hindi"][0]
     db.add(
         TeacherAbsence(
@@ -490,6 +444,58 @@ def seed_flavor_data(
             resolved=False,
         )
     )
+
+
+def seed_teacher_absence_history(
+    db, teachers_by_dept: dict[str, list[Teacher]], rng: random.Random
+) -> None:
+    """90 days of resolved TeacherAbsence rows, ending the day before
+    ANCHOR_DATE. PROMPT.md §6.5's staffing forecast needs a real time series to
+    fit an EWMA + seasonal baseline against -- Phase 1 seeded 90 days of
+    *student* attendance but not teacher absence, which would have made the
+    Phase 4 forecast fake. Deliberately separate from seed_flavor_data's single
+    unresolved absence, which is the one meant to be "discovered" live.
+
+    Real absence is a low-probability daily event (unlike student attendance,
+    which is seeded near-universally present) -- baseline ~3.5%/day, a small
+    Monday bump, and a two-week Mathematics-department spike so the
+    per-department seasonal signal the forecast claims to model is genuinely
+    there to find, not manufactured after the fact. The spike sits inside the
+    last 30 days on purpose: that's the window services/staffing/forecast.py's
+    backtest evaluates, and it's where an EWMA (which weights recent days more)
+    should actually beat a flat 90-day average -- a naive baseline dilutes a
+    recent shift across 90 days of normal history, EWMA doesn't.
+    """
+    all_teachers = [t for teachers in teachers_by_dept.values() for t in teachers]
+    bump_dept = "Mathematics"
+    bump_start = ANCHOR_DATE - timedelta(days=20)
+    bump_end = ANCHOR_DATE - timedelta(days=7)
+
+    records = []
+    for offset in range(1, 91):
+        day = ANCHOR_DATE - timedelta(days=offset)
+        if day.weekday() == 6:  # Sunday — no school
+            continue
+        is_monday = day.weekday() == 0
+        is_bump_week = bump_start <= day < bump_end
+        for teacher in all_teachers:
+            prob = 0.035
+            if is_monday:
+                prob += 0.02
+            if is_bump_week and teacher.dept == bump_dept:
+                prob += 0.20
+            if rng.random() < prob:
+                records.append(
+                    {
+                        "teacher_id": teacher.id,
+                        "date": day,
+                        "reason": rng.choice(ABSENCE_REASONS),
+                        "resolved": True,
+                    }
+                )
+    if records:
+        db.execute(insert(TeacherAbsence).values(records))
+        db.commit()
 
 
 def seed_users(
@@ -538,7 +544,8 @@ def main() -> None:
         seed_assignments(db, sections, subjects, teachers_by_dept)
         students = seed_students(db, sections, rng)
         cliff_student_ids = pick_cliff_students(students, rng)
-        seed_flavor_data(db, teachers_by_dept, students, cliff_student_ids)
+        seed_flavor_data(db, teachers_by_dept)
+        seed_teacher_absence_history(db, teachers_by_dept, rng)
         seed_users(db, teachers_by_dept, cliff_student_ids)
         db.commit()
         print(

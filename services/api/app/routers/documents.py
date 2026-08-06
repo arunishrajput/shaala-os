@@ -13,6 +13,7 @@ from app.services.documents import (
     read_fields,
     reject_document,
 )
+from app.services.signals.registry import run_signals
 from app.services.vision.fixture import FIXTURES_DIR
 from app.ws.manager import manager
 
@@ -73,6 +74,8 @@ async def try_sample(doc_type: str, db: Session = Depends(get_db)) -> dict:
     content = (FIXTURES_DIR / "samples" / filename).read_bytes()
     document = process_upload(db, content, "image/jpeg")
     await manager.broadcast("document.uploaded", _summary(document))
+    run_signals(db)
+    await manager.broadcast("actions.updated", {})
     return _detail(db, document)
 
 
@@ -86,6 +89,8 @@ async def upload(
         document = process_upload(db, content, file.content_type or "application/octet-stream")
         documents.append(_summary(document))
         await manager.broadcast("document.uploaded", _summary(document))
+    run_signals(db)
+    await manager.broadcast("actions.updated", {})
     return {"documents": documents}
 
 
@@ -114,13 +119,17 @@ async def commit(document_id: int, payload: CommitRequest, db: Session = Depends
     except CommitError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     await manager.broadcast("document.committed", result)
+    run_signals(db)
+    await manager.broadcast("actions.updated", {})
     return result
 
 
 @router.post("/{document_id}/reject")
-def reject(document_id: int, db: Session = Depends(get_db)) -> dict:
+async def reject(document_id: int, db: Session = Depends(get_db)) -> dict:
     try:
         document = reject_document(db, document_id)
     except CommitError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    run_signals(db)
+    await manager.broadcast("actions.updated", {})
     return _summary(document)
