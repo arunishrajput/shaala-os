@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db.session import SessionLocal
-from app.routers import actions, auth, documents, health, people, timetable
+from app.routers import actions, auth, documents, health, notifications, people, timetable
 from app.services.signals import rules  # noqa: F401 -- registers the @signal rules on import
 from app.services.signals.registry import run_signals
 from app.ws.routes import router as ws_router
@@ -49,4 +49,5 @@ app.include_router(people.router)
 app.include_router(timetable.router)
 app.include_router(documents.router)
 app.include_router(actions.router)
+app.include_router(notifications.router)
 app.include_router(ws_router)

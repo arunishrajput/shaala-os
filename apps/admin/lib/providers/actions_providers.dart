@@ -44,6 +44,9 @@ class ActionItemsNotifier extends AsyncNotifier<List<ActionItemModel>> {
 
   Future<void> dismiss(int id) =>
       _remove(id, () => ref.read(actionsRepositoryProvider).dismiss(id));
+
+  Future<void> draftMessages(int id) =>
+      _remove(id, () => ref.read(actionsRepositoryProvider).draftMessages(id));
 }
 
 final actionItemsProvider =

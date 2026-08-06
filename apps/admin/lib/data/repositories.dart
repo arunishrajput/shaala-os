@@ -6,6 +6,7 @@ import 'models/action_item.dart';
 import 'models/auth_result.dart';
 import 'models/class_section.dart';
 import 'models/document.dart';
+import 'models/notification.dart';
 import 'models/student.dart';
 import 'models/teacher.dart';
 import 'models/time_slot_info.dart';
@@ -212,6 +213,23 @@ class ActionsRepository {
   Future<ActionItemModel> dismiss(int id) async {
     final resp = await _client.dio.post('/actions/$id/dismiss');
     return ActionItemModel.fromJson(resp.data as Map<String, dynamic>);
+  }
+
+  Future<int> draftMessages(int id) async {
+    final resp = await _client.dio.post('/actions/$id/draft-messages');
+    return (resp.data as Map<String, dynamic>)['drafted'] as int;
+  }
+}
+
+class NotificationsRepository {
+  NotificationsRepository(this._client);
+  final ApiClient _client;
+
+  Future<List<NotificationModel>> fetch({int limit = 20}) async {
+    final resp = await _client.dio.get('/notifications', queryParameters: {'limit': limit});
+    return (resp.data as List)
+        .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 }
 

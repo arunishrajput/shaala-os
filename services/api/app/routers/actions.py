@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import ActionItem, ActionStatus
 from app.db.session import get_db
+from app.services.notifications import draft_parent_messages
 from app.ws.manager import manager
 
 router = APIRouter(prefix="/actions", tags=["actions"])
@@ -50,6 +51,33 @@ async def resolve(action_id: int, db: Session = Depends(get_db)) -> dict:
     db.commit()
     await manager.broadcast("action.resolved", _out(item))
     return _out(item)
+
+
+@router.post("/{action_id}/draft-messages")
+async def draft_messages(action_id: int, db: Session = Depends(get_db)) -> dict:
+    """The low_attendance_trend card's primary action. Drafting messages
+    doesn't itself fix the attendance number, so unlike /resolve this is a
+    genuine acknowledgment: the card is done *for this admin*, not because the
+    underlying condition changed -- the next signals tick is what actually
+    re-evaluates whether it's still true.
+    """
+    item = db.get(ActionItem, action_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="No such action item.")
+    if item.kind != "low_attendance_trend":
+        raise HTTPException(
+            status_code=400, detail=f"kind='{item.kind}' has no message-drafting action."
+        )
+    student_ids = item.payload.get("student_ids", [])
+    drafted = draft_parent_messages(db, student_ids)
+
+    item.status = ActionStatus.resolved
+    item.resolved_at = datetime.now(UTC)
+    db.commit()
+
+    await manager.broadcast("notifications.updated", {})
+    await manager.broadcast("action.resolved", _out(item))
+    return {"drafted": len(drafted), "action": _out(item)}
 
 
 @router.post("/{action_id}/dismiss")

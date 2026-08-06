@@ -41,6 +41,8 @@ Future<void> _handlePrimaryAction(BuildContext context, WidgetRef ref, ActionIte
         ref.read(selectedClassIdProvider.notifier).state = classId;
       }
       context.go('/timetable');
+    case 'low_attendance_trend':
+      await ref.read(actionItemsProvider.notifier).draftMessages(item.id);
     default:
       ref.read(actionItemsProvider.notifier).resolve(item.id);
   }

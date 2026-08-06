@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import DEMO_ANCHOR_DATE
 from app.db.models import RoomType, Teacher, TeacherAbsence, TimeSlot, TimetableEntry
 from app.db.session import get_db
+from app.services.notifications import draft_substitute_notice
 from app.services.signals.registry import run_signals
 from app.services.timetable.explain import (
     active_version,
@@ -331,9 +332,23 @@ async def substitute(payload: SubstituteRequest, db: Session = Depends(get_db)) 
         )
     entry_out = _entry_out(new_entry, si)
 
+    absent_teacher = si.teachers_by_id.get(absence.teacher_id)
+    new_teacher = si.teachers_by_id[payload.teacher_id]
+    draft_substitute_notice(
+        db,
+        teacher_name=new_teacher.name,
+        teacher_phone=new_teacher.phone,
+        class_label=entry_out["class_label"],
+        subject_name=entry_out["subject_name"],
+        slot_label=entry_out["slot_label"],
+        absent_teacher_name=absent_teacher.name if absent_teacher else "the absent teacher",
+    )
+    db.commit()
+
     run_signals(db)
     await manager.broadcast("timetable.substituted", entry_out)
     await manager.broadcast("actions.updated", {})
+    await manager.broadcast("notifications.updated", {})
     return {
         "absence_id": absence.id,
         "absence_resolved": absence.resolved,
