@@ -12,13 +12,16 @@ final actionsRepositoryProvider = Provider<ActionsRepository>((ref) {
 /// change the set (PROMPT.md §7.3 pattern) -- `actions.updated` covers every
 /// signal-engine tick and mutation that calls run_signals(), the two
 /// action.* events cover this client's own resolve/dismiss taps landing
-/// (including from another connected device).
+/// (including from another connected device). `connected` also triggers a
+/// refresh -- it fires on the initial connect AND every reconnect, and a
+/// change broadcast during a brief drop would otherwise never be seen.
 class ActionItemsNotifier extends AsyncNotifier<List<ActionItemModel>> {
   @override
   Future<List<ActionItemModel>> build() {
     ref.listen(eventStreamProvider, (_, next) {
       final t = next.value?.type;
-      if (t == 'actions.updated' ||
+      if (t == 'connected' ||
+          t == 'actions.updated' ||
           t == 'action.resolved' ||
           t == 'action.dismissed') {
         ref.invalidateSelf();

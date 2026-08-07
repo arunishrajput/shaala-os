@@ -10,12 +10,19 @@ final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
 
 /// Today's live feed (PROMPT.md §6.4A: "row slides into the live feed,
 /// counter ticks up on every connected device"). Self-invalidates on
-/// attendance.marked, which every scan/manual mark broadcasts.
+/// attendance.marked, which every scan/manual mark broadcasts -- and on
+/// 'connected', which fires on the initial connect AND every reconnect: a
+/// mark broadcast during a brief drop is otherwise lost forever, since a
+/// closed socket can't deliver anything and this client only reacts to
+/// event types it's currently listening for.
 class AttendanceTodayNotifier extends AsyncNotifier<AttendanceToday> {
   @override
   Future<AttendanceToday> build() {
     ref.listen(eventStreamProvider, (_, next) {
-      if (next.value?.type == 'attendance.marked') ref.invalidateSelf();
+      final type = next.value?.type;
+      if (type == 'connected' || type == 'attendance.marked') {
+        ref.invalidateSelf();
+      }
     });
     return ref.read(attendanceRepositoryProvider).fetchToday();
   }

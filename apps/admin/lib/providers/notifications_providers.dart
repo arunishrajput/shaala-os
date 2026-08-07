@@ -12,12 +12,17 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>((
 
 /// The Outbox (PROMPT.md §6.3): self-invalidates on notifications.updated,
 /// broadcast whenever a substitute assignment or a "draft parent messages"
-/// tap creates new rows.
+/// tap creates new rows -- and on 'connected' (initial connect and every
+/// reconnect), since a broadcast during a brief drop would otherwise never
+/// be seen.
 class NotificationsNotifier extends AsyncNotifier<List<NotificationModel>> {
   @override
   Future<List<NotificationModel>> build() {
     ref.listen(eventStreamProvider, (_, next) {
-      if (next.value?.type == 'notifications.updated') ref.invalidateSelf();
+      final type = next.value?.type;
+      if (type == 'connected' || type == 'notifications.updated') {
+        ref.invalidateSelf();
+      }
     });
     return ref.read(notificationsRepositoryProvider).fetch();
   }
