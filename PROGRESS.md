@@ -78,6 +78,60 @@ phase, per CLAUDE.md.
     `flutter build web` + direct curl checks instead. Every screen named in
     PROMPT.md §9's Phase 5 gate has now been code-reviewed and fixed where
     something was actually wrong; what remains is eyes on it.
+  - **Third slice — browser tooling recovered this session; live-verified
+    against production for the first time since Phase 3.** Confirmed
+    working exactly as designed: the header Reset button (confirm dialog →
+    progress dialog → full reload → back to login — previously only
+    statically verified), the Login screen's new per-button spinner, the
+    Documents review panel end-to-end (bbox overlay on the real image,
+    amber low-confidence field sorted first, commit → student genuinely
+    created — verified via a direct API check, not just the UI), and
+    `/timetable/generate` correctly showing the new friendly message
+    instead of a raw error when it fails on Render's free tier.
+  - Found and fixed a real bug this surfaced immediately: hit Render's
+    free-tier cold start on the very first login attempt and got a raw Dio
+    exception on screen — *"The request connection took longer than
+    0:00:10.000000 and it was aborted. To get rid of this exception, try
+    raising the RequestOptions.connectTimeout..."* — exactly what the
+    Phase 5 `friendlyError` sweep was supposed to prevent.
+    `ApiException.fromDioException` only ever read a `detail` off an HTTP
+    response body; for network-level failures (timeout, connection error)
+    with no response at all, it fell straight through to dio's own raw
+    `e.message`. Fixed by branching on `DioExceptionType` (checked against
+    the installed dio 5.11.0 source) and naming the Render cold-start
+    possibility directly in the message, since that's the real, expected
+    path here. Committed `5b6d564`, live-verified the fix immediately after
+    on the same failure path.
+  - Chased a second, subtler bug from the same live pass: committed a
+    sample admission form and the Dashboard's student counter stayed at
+    600 instead of ticking to 601 — the exact "student count ticks up
+    live" beat DEMO_SCRIPT.md opens with, and confirmed via a direct API
+    check that the backend-side commit was completely correct (601 real
+    rows). Root-caused with temporary instrumentation (not guessed): the
+    four WS-driven self-invalidating providers (students count, action
+    items, notifications, attendance-today) only ever re-fetch on their
+    own specific named event type, so a broadcast that lands during a
+    connection drop is lost the moment the old socket closes — nothing
+    re-checks state after a reconnect. Fixed in `60d7f34` by also
+    invalidating on `'connected'`, which the backend sends on the initial
+    connect *and* every reconnect — a sound defensive pattern regardless of
+    why a drop happens (Render resets, real WiFi hiccups, a backgrounded
+    mobile tab). **Could not get a clean, conclusive live re-test of this
+    specific fix**: the browser automation tooling in this session showed
+    `flutter_bootstrap.js` injecting its script tag multiple times per
+    single navigation/interaction (observed 2×, then 5× on one click) —
+    almost certainly the tooling instrumenting the page, not real user
+    behavior, since a real browser loads that script exactly once per
+    navigation. This is a new, more specific data point on top of the
+    already-documented "browser click automation broken" pattern from
+    Phase 4, not a contradiction of it. The fix itself is architecturally
+    sound, passed `make verify` end to end, and the *other* three WS-driven
+    live-update paths (action bell count, WS badge Live/Connecting
+    transitions, reset button) were all cleanly confirmed working in the
+    less-disturbed early part of this same session — but the exact
+    "counter ticks up live" moment should get one calm, unhurried real-
+    browser check before it's trusted for the recorded demo. Logged as the
+    top known gap below.
 - **Phase 1** — foundation, deploy plumbing, Flutter shell, People screens.
 - **Phase 2** — CP-SAT timetable solver, explain-any-cell, drag-and-drop
   validation, substitute repair algorithm. See phase log below.
@@ -246,35 +300,41 @@ phase, per CLAUDE.md.
   are both affected by the production memory issue above; the document
   pipeline is unaffected and now verified live in production (see Phase 3
   log entry above for the free-tier pre-deploy-command gap this uncovered).
-- The Staffing screen's backtest chart and the header "Reset demo data"
-  button were verified statically only (`flutter analyze` clean,
-  `flutter build web` succeeds, backend endpoints curl-verified with sane
-  data) — browser click automation stopped responding partway through this
-  session (confirmed broken against a plain external page too, not this
-  app's code) and hadn't recovered by the time Phase 4 shipped. Every other
-  Phase 4 feature (Action Center, substitute assignment, notifications,
-  attendance kiosk/manual/ID-cards) was verified live in the browser.
-  Worth a five-minute visual pass next session.
-- The whole Phase 5 bug-bash pass (raw-exception fixes, dead-end fixes, empty
-  states, mobile-responsive `LayoutBuilder` changes, the WS badge fix, the
-  login spinner) is verified only via `flutter analyze` + `flutter build web`
-  + backend tests — same browser tooling outage as above, now spanning three
-  attempts across two sessions. Highest-value things to check first next
-  session, in order: the WS badge actually flips to "Connecting…" on a real
-  drop (hardest to fake without a live socket), the substitute-dialog
-  error-banner fix, and the mobile-width `LayoutBuilder` breakpoints at an
-  actual narrow viewport.
+- **The Dashboard's "student count ticks up live" beat (DEMO_SCRIPT.md's
+  opening moment) needs one calm, unhurried real-browser check before the
+  recorded demo.** A fix landed this session (`60d7f34` — WS-driven
+  providers now also refresh on reconnect, not just their specific named
+  event) after live-testing surfaced the counter staying stale post-commit,
+  root-caused to a real gap (a broadcast lost during a connection drop was
+  never re-checked). The backend side is confirmed correct via direct API
+  checks. The re-test of the *fix itself* was inconclusive because the
+  browser tooling was observed injecting `flutter_bootstrap.js` multiple
+  times per single click in this session (2× to 5×) — almost certainly
+  tooling interference, not real behavior, but it means this one path
+  isn't cleanly confirmed the way the Reset button, document commit, login
+  spinner, and friendly-cold-start-error all were in the same session. See
+  the Phase 5 third-slice log entry below for the full trace.
+- The Staffing screen's backtest chart specifically is still verified
+  statically only (`flutter analyze` clean, `flutter build web` succeeds,
+  backend curl-verified) — it's the one Phase 4 screen the recovered
+  browser tooling this session didn't get to. Every other Phase 4/5 feature
+  (Action Center, substitute assignment, notifications, attendance
+  kiosk/manual/ID-cards, Reset button, Documents pipeline, WS badge, login)
+  has now been verified live in the browser at least once.
+- Phase 5's mobile-responsive `LayoutBuilder` breakpoints (900px/760px) and
+  the substitute-dialog error-banner fix are still verified statically only
+  — the recovered browser tooling this session was spent chasing the two
+  bugs above instead of a narrow-viewport pass. Worth resizing the window
+  and re-running the "Mark absent" flow next session.
 
 ## Next 3 tasks (Phase 5 — feature freeze & bug bash)
-1. Live-verify the whole Phase 5 bug-bash pass (both slices) plus the
-   still-outstanding Phase 4 items (Staffing chart, Reset demo data button)
-   now that a fresh session should have working browser tooling — see known
-   gap above. Every screen in PROMPT.md §9's Phase 5 gate has been
-   code-reviewed and fixed where warranted; this is the only remaining gap
-   before declaring the gate passed.
-2. Once live-verified, update this file's header to gate-passed and add the
-   Phase 5 phase-log entry's final verdict (it's currently written as
-   in-progress).
+1. One calm live check of the Dashboard student counter after a document
+   commit (see known gap above) — ideally without rapid automated clicking,
+   which this session found actually perturbs this specific browser
+   environment. If it ticks up cleanly, declare Phase 5's gate passed.
+2. Resize the window (or use device emulation) to actually exercise the
+   900px/760px `LayoutBuilder` breakpoints and the Staffing chart, the two
+   remaining statically-only-verified items.
 3. Revisit the Phase 2 production solver RAM gap and the Phase 5/6-deferred
    §6.6 stretch items (Principal's Weekly Briefing, Ask Shaala) only if
    Phase 5 finishes with room to spare — PROMPT.md's own hard rule is that a
@@ -400,10 +460,44 @@ buttons also went from "disables on click, no other feedback" to a real
 per-button spinner. Rebuilt with production dart-defines, pushed, and
 `vercel --prod`-deployed; both prod URLs curl 200 afterward.
 
+Third slice: browser tooling recovered mid-session, enabling the first live
+verification pass since Phase 3. Confirmed working exactly as designed: the
+Reset button's full confirm → progress → reload → login cycle, the Login
+spinner, and the Documents pipeline end to end (bbox overlay, low-confidence
+sort, commit landing as a real `Student` row — checked directly against the
+API, not just the UI). This immediately paid for itself: hit Render's free
+tier cold start on the first live login attempt and caught a real bug —
+`ApiException.fromDioException` had no handling for network-level failures
+(no HTTP response to read a `detail` from), so it fell through to dio's own
+raw, multi-line `DioExceptionType` message. Fixed by branching on the
+exception type (checked against installed dio 5.11.0 source) and naming the
+cold-start possibility directly (`5b6d564`), then live-reverified the exact
+same failure path immediately after — clean, friendly message this time.
+
+A second bug surfaced from the same pass: after a commit, the Dashboard's
+student counter stayed stale instead of ticking up, the literal first beat
+of DEMO_SCRIPT.md. Root-caused (with temporary instrumentation, not
+guessed) to a real architecture gap — the four WS-driven self-invalidating
+providers only react to their own specific named event type, so anything
+broadcast during a connection drop is gone the moment the old socket
+closes, with nothing re-checking state on reconnect. Fixed in `60d7f34` by
+also invalidating on the `'connected'` event (sent by the backend on
+initial connect and every reconnect) — correct regardless of *why* a drop
+happens. The backend side was confirmed correct via a direct API check
+(the student really was created). The frontend re-test of this specific fix
+was inconclusive: this session's browser tooling was observed injecting
+`flutter_bootstrap.js` multiple times per single click (2× at first, 5× on
+one later attempt) — a new, more specific data point on the "browser click
+automation broken" pattern already on record from Phase 4, not a
+contradiction of it, since a real browser loads that script exactly once
+per navigation. The fix passed `make verify` clean and is architecturally
+sound; it just doesn't yet have a clean live confirmation the way the other
+three items in this slice do.
+
 **Gate is not being declared passed yet.** Every screen and state PROMPT.md
-§9's Phase 5 gate cares about (dead ends, raw exceptions, empty/loading
-states, mobile responsiveness, connection-status honesty) has now been
-code-reviewed and fixed where something was actually wrong, across both
-slices. What's left is exclusively live browser verification, blocked on
-the tooling outage — not unaudited surface area. Carried forward as the top
-item in "Next 3 tasks" above.
+§9's Phase 5 gate cares about has been code-reviewed and fixed where
+something was actually wrong, across all three slices, and most of it is
+now live-verified in the browser too. What's left is one calm re-check of
+the Dashboard counter fix, plus the Staffing chart and the mobile-width
+breakpoints, none of which have working-vs-broken evidence either way yet.
+Carried forward as "Next 3 tasks" above.
