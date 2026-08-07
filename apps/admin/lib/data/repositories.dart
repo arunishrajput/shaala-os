@@ -328,9 +328,27 @@ class ApiException implements Exception {
     final detail = e.response?.data is Map
         ? (e.response?.data as Map)['detail']
         : null;
-    return ApiException(
-      detail?.toString() ?? e.message ?? 'Something went wrong',
-    );
+    if (detail != null) return ApiException(detail.toString());
+    // No response body to read a `detail` from -- these are network-level
+    // failures where dio's own `e.message` is a multi-line technical dump
+    // (e.g. "The request connection took longer than 0:00:10.000000...").
+    // Render's free tier sleeping after inactivity makes the timeout case
+    // a real, expected path here, not just a hypothetical one.
+    final friendly = switch (e.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout ||
+      DioExceptionType.transformTimeout =>
+        'The server is taking longer than expected to respond '
+            '(it may be waking up from sleep) — please try again.',
+      DioExceptionType.connectionError =>
+        'Could not reach the server. Check your connection and try again.',
+      DioExceptionType.cancel => 'Request cancelled.',
+      DioExceptionType.badCertificate => 'Could not verify server security.',
+      DioExceptionType.badResponse ||
+      DioExceptionType.unknown => 'Something went wrong.',
+    };
+    return ApiException(friendly);
   }
 
   @override
