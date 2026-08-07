@@ -102,36 +102,48 @@ phase, per CLAUDE.md.
     possibility directly in the message, since that's the real, expected
     path here. Committed `5b6d564`, live-verified the fix immediately after
     on the same failure path.
-  - Chased a second, subtler bug from the same live pass: committed a
-    sample admission form and the Dashboard's student counter stayed at
-    600 instead of ticking to 601 — the exact "student count ticks up
-    live" beat DEMO_SCRIPT.md opens with, and confirmed via a direct API
-    check that the backend-side commit was completely correct (601 real
-    rows). Root-caused with temporary instrumentation (not guessed): the
-    four WS-driven self-invalidating providers (students count, action
-    items, notifications, attendance-today) only ever re-fetch on their
-    own specific named event type, so a broadcast that lands during a
-    connection drop is lost the moment the old socket closes — nothing
-    re-checks state after a reconnect. Fixed in `60d7f34` by also
-    invalidating on `'connected'`, which the backend sends on the initial
-    connect *and* every reconnect — a sound defensive pattern regardless of
-    why a drop happens (Render resets, real WiFi hiccups, a backgrounded
-    mobile tab). **Could not get a clean, conclusive live re-test of this
-    specific fix**: the browser automation tooling in this session showed
-    `flutter_bootstrap.js` injecting its script tag multiple times per
-    single navigation/interaction (observed 2×, then 5× on one click) —
-    almost certainly the tooling instrumenting the page, not real user
-    behavior, since a real browser loads that script exactly once per
-    navigation. This is a new, more specific data point on top of the
-    already-documented "browser click automation broken" pattern from
-    Phase 4, not a contradiction of it. The fix itself is architecturally
-    sound, passed `make verify` end to end, and the *other* three WS-driven
-    live-update paths (action bell count, WS badge Live/Connecting
-    transitions, reset button) were all cleanly confirmed working in the
-    less-disturbed early part of this same session — but the exact
-    "counter ticks up live" moment should get one calm, unhurried real-
-    browser check before it's trusted for the recorded demo. Logged as the
-    top known gap below.
+  - Chased a second, deeper bug from the same live pass, all the way to a
+    real fix and a clean live re-confirmation: committed a sample admission
+    form and the Dashboard's student counter stayed at 600 instead of
+    ticking to 601 — the exact "student count ticks up live" beat
+    DEMO_SCRIPT.md opens with. Confirmed via direct API checks throughout
+    that the backend side was never at fault (601 real rows, immediately,
+    every time — 10 rapid successive `curl` polls right after a commit all
+    came back correct). Added temporary instrumentation to trace the actual
+    client-side sequence rather than guessing, and found the WS event, the
+    `invalidateSelf()` call, and the provider rebuild were all firing
+    correctly on `document.committed` — the *refetch itself* was the one
+    returning stale data. Root cause: no response from this API ever set
+    `Cache-Control`, and Dio's web adapter uses `XMLHttpRequest` (checked
+    against the installed `dio_web_adapter` 2.2.1 source, not guessed),
+    which Chrome was willing to serve from its own HTTP cache for a repeat
+    GET to the identical `/students` URL — even with no `Last-Modified` or
+    `ETag` present. This undermines the app's entire "WS says something
+    changed, refetch" model for every GET endpoint, not just this one.
+    Fixed with a blanket `Cache-Control: no-store` middleware in
+    `services/api/app/main.py` (`69361f0`) rather than annotating routes
+    one at a time.
+  - Also added, while investigating: the four WS-driven self-invalidating
+    providers (students count, action items, notifications,
+    attendance-today) now also invalidate on the `'connected'` event
+    (`60d7f34`), which the backend sends on the initial connect *and* every
+    reconnect — a sound defensive pattern for genuine connection drops,
+    even though it turned out not to be this bug's actual cause.
+  - **Live re-verified after both fixes deployed, cleanly this time**:
+    reset → committed a fresh admission form → the Dashboard counter
+    correctly ticked 600 → 601 without a manual refresh. It took roughly
+    20 seconds end to end on this pass, longer than the sub-second local
+    timing — real Render free-tier latency through the full
+    commit → broadcast → run_signals → second broadcast → WS delivery →
+    client refetch chain, not a bug. Worth keeping in mind for the recorded
+    demo (leave a beat after committing before the counter visibly moves),
+    but the mechanism itself is confirmed correct and live-verified, not
+    just architecturally sound.
+  - Along the way, also live-confirmed two more previously-unverified items
+    from this same session: an admission-form commit correctly disabling
+    Reject/re-triggering while in flight, and the header Reset button's
+    confirm → progress → full reload → login cycle working a second time
+    from a warm session (not just cold).
 - **Phase 1** — foundation, deploy plumbing, Flutter shell, People screens.
 - **Phase 2** — CP-SAT timetable solver, explain-any-cell, drag-and-drop
   validation, substitute repair algorithm. See phase log below.
@@ -300,20 +312,6 @@ phase, per CLAUDE.md.
   are both affected by the production memory issue above; the document
   pipeline is unaffected and now verified live in production (see Phase 3
   log entry above for the free-tier pre-deploy-command gap this uncovered).
-- **The Dashboard's "student count ticks up live" beat (DEMO_SCRIPT.md's
-  opening moment) needs one calm, unhurried real-browser check before the
-  recorded demo.** A fix landed this session (`60d7f34` — WS-driven
-  providers now also refresh on reconnect, not just their specific named
-  event) after live-testing surfaced the counter staying stale post-commit,
-  root-caused to a real gap (a broadcast lost during a connection drop was
-  never re-checked). The backend side is confirmed correct via direct API
-  checks. The re-test of the *fix itself* was inconclusive because the
-  browser tooling was observed injecting `flutter_bootstrap.js` multiple
-  times per single click in this session (2× to 5×) — almost certainly
-  tooling interference, not real behavior, but it means this one path
-  isn't cleanly confirmed the way the Reset button, document commit, login
-  spinner, and friendly-cold-start-error all were in the same session. See
-  the Phase 5 third-slice log entry below for the full trace.
 - The Staffing screen's backtest chart specifically is still verified
   statically only (`flutter analyze` clean, `flutter build web` succeeds,
   backend curl-verified) — it's the one Phase 4 screen the recovered
@@ -328,13 +326,12 @@ phase, per CLAUDE.md.
   and re-running the "Mark absent" flow next session.
 
 ## Next 3 tasks (Phase 5 — feature freeze & bug bash)
-1. One calm live check of the Dashboard student counter after a document
-   commit (see known gap above) — ideally without rapid automated clicking,
-   which this session found actually perturbs this specific browser
-   environment. If it ticks up cleanly, declare Phase 5's gate passed.
-2. Resize the window (or use device emulation) to actually exercise the
+1. Resize the window (or use device emulation) to actually exercise the
    900px/760px `LayoutBuilder` breakpoints and the Staffing chart, the two
-   remaining statically-only-verified items.
+   remaining statically-only-verified items — the last gap before this
+   phase's gate can be declared passed.
+2. Once those are checked, update this file's header to gate-passed and
+   write the Phase 5 phase-log entry's final verdict (currently in-progress).
 3. Revisit the Phase 2 production solver RAM gap and the Phase 5/6-deferred
    §6.6 stretch items (Principal's Weekly Briefing, Ask Shaala) only if
    Phase 5 finishes with room to spare — PROMPT.md's own hard rule is that a
@@ -474,30 +471,33 @@ exception type (checked against installed dio 5.11.0 source) and naming the
 cold-start possibility directly (`5b6d564`), then live-reverified the exact
 same failure path immediately after — clean, friendly message this time.
 
-A second bug surfaced from the same pass: after a commit, the Dashboard's
-student counter stayed stale instead of ticking up, the literal first beat
-of DEMO_SCRIPT.md. Root-caused (with temporary instrumentation, not
-guessed) to a real architecture gap — the four WS-driven self-invalidating
-providers only react to their own specific named event type, so anything
-broadcast during a connection drop is gone the moment the old socket
-closes, with nothing re-checking state on reconnect. Fixed in `60d7f34` by
-also invalidating on the `'connected'` event (sent by the backend on
-initial connect and every reconnect) — correct regardless of *why* a drop
-happens. The backend side was confirmed correct via a direct API check
-(the student really was created). The frontend re-test of this specific fix
-was inconclusive: this session's browser tooling was observed injecting
-`flutter_bootstrap.js` multiple times per single click (2× at first, 5× on
-one later attempt) — a new, more specific data point on the "browser click
-automation broken" pattern already on record from Phase 4, not a
-contradiction of it, since a real browser loads that script exactly once
-per navigation. The fix passed `make verify` clean and is architecturally
-sound; it just doesn't yet have a clean live confirmation the way the other
-three items in this slice do.
+A second bug surfaced from the same pass, and this one took real digging to
+run to ground: after a commit, the Dashboard's student counter stayed stale
+instead of ticking up, the literal first beat of DEMO_SCRIPT.md. First
+instrumented and fixed the wrong-but-reasonable hypothesis — the four
+WS-driven self-invalidating providers only react to their own named event
+type, so a connection drop could plausibly lose a broadcast (fixed in
+`60d7f34` by also invalidating on `'connected'`, a sound defensive pattern
+kept regardless). But live re-testing after that fix still showed the same
+staleness, and direct `curl` polling proved the backend was never at fault
+(601, immediately, on 10/10 rapid successive checks after a commit). More
+instrumentation isolated the real cause precisely: the WS event, the
+`invalidateSelf()` call, and the provider rebuild were all firing correctly
+— the *refetch itself* was returning stale data. No response from this API
+ever set `Cache-Control`, and Dio's web adapter uses `XMLHttpRequest`
+(checked against the installed `dio_web_adapter` 2.2.1 source), which
+Chrome was willing to serve from its own cache for a repeat GET to the
+identical URL. Fixed with a blanket `Cache-Control: no-store` middleware
+(`69361f0`) rather than annotating routes one at a time, since this
+undermined the app's entire live-update model, not just this one counter.
+Live re-verified cleanly afterward: reset → commit → the counter correctly
+ticked 600 → 601 with no manual refresh, taking roughly 20 seconds
+end-to-end (real Render free-tier latency through the full request chain,
+not a bug — worth a deliberate beat in the recorded demo).
 
-**Gate is not being declared passed yet.** Every screen and state PROMPT.md
-§9's Phase 5 gate cares about has been code-reviewed and fixed where
-something was actually wrong, across all three slices, and most of it is
-now live-verified in the browser too. What's left is one calm re-check of
-the Dashboard counter fix, plus the Staffing chart and the mobile-width
-breakpoints, none of which have working-vs-broken evidence either way yet.
-Carried forward as "Next 3 tasks" above.
+**Gate is not being declared passed yet**, but only two items remain, and
+neither has working-vs-broken evidence either way yet: the Staffing chart
+and the mobile-width `LayoutBuilder` breakpoints. Every other screen and
+state PROMPT.md §9's Phase 5 gate cares about has been code-reviewed, fixed
+where something was actually wrong, and live-verified in the browser this
+session. Carried forward as "Next 3 tasks" above.
