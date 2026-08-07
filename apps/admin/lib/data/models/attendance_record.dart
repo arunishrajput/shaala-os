@@ -29,5 +29,6 @@ class AttendanceToday with _$AttendanceToday {
     required List<AttendanceRecordModel> records,
   }) = _AttendanceToday;
 
-  factory AttendanceToday.fromJson(Map<String, dynamic> json) => _$AttendanceTodayFromJson(json);
+  factory AttendanceToday.fromJson(Map<String, dynamic> json) =>
+      _$AttendanceTodayFromJson(json);
 }

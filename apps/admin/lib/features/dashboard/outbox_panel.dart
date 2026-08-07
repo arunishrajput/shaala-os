@@ -28,13 +28,23 @@ class OutboxPanel extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.outbox_outlined, size: 18, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.outbox_outlined,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 8),
-                    Text('Outbox', style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      'Outbox',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'drafted, not sent',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -62,17 +72,27 @@ class _OutboxRow extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 2),
-            child: Icon(Icons.sms_outlined, size: 14, color: AppColors.textSecondary),
+            child: Icon(
+              Icons.sms_outlined,
+              size: 14,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.toName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  item.toName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 Text(
                   item.body,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),

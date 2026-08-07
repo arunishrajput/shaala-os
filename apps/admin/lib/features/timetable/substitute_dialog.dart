@@ -4,7 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../providers/timetable_providers.dart';
 
-Future<void> showSubstituteDialog(BuildContext context, WidgetRef ref, int teacherId) async {
+Future<void> showSubstituteDialog(
+  BuildContext context,
+  WidgetRef ref,
+  int teacherId,
+) async {
   await ref.read(substitutePanelProvider.notifier).open(teacherId);
   if (!context.mounted) return;
   await showDialog<void>(
@@ -70,27 +74,51 @@ class _Body extends ConsumerWidget {
         child: Center(child: CircularProgressIndicator()),
       );
     }
-    if (state.error != null) {
+    // An error from the initial `open()` load (never got any periods to show)
+    // is the whole story. An error from a later `assign()` call is not --
+    // the periods list this replaced used to hide the periods that *did*
+    // still need a tap, turning one failed assignment into a dead end for
+    // the rest of a multi-period absence.
+    if (state.error != null && state.absenceId == null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Text(state.error!, style: const TextStyle(color: AppColors.critical)),
-      );
-    }
-    if (state.periods.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 40),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle_outline, color: AppColors.info),
-            SizedBox(width: 12),
-            Text('Every period is covered.'),
-          ],
+        child: Text(
+          state.error!,
+          style: const TextStyle(color: AppColors.critical),
         ),
       );
     }
-    return ListView(
-      shrinkWrap: true,
-      children: [for (final period in state.periods) _PeriodTile(period: period)],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (state.error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              state.error!,
+              style: const TextStyle(color: AppColors.critical),
+            ),
+          ),
+        if (state.periods.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_outline, color: AppColors.info),
+                SizedBox(width: 12),
+                Text('Every period is covered.'),
+              ],
+            ),
+          )
+        else
+          ListView(
+            shrinkWrap: true,
+            children: [
+              for (final period in state.periods) _PeriodTile(period: period),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -103,7 +131,8 @@ class _PeriodTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final key = '${period['class_id']}:${period['slot_id']}';
     final assigning = ref.watch(substitutePanelProvider).assigningKey == key;
-    final candidates = (period['candidates'] as List).cast<Map<String, dynamic>>();
+    final candidates = (period['candidates'] as List)
+        .cast<Map<String, dynamic>>();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),

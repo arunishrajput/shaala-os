@@ -48,7 +48,8 @@ class DocumentDetail with _$DocumentDetail {
     required List<Map<String, dynamic>> rows,
   }) = _DocumentDetail;
 
-  factory DocumentDetail.fromJson(Map<String, dynamic> json) => _$DocumentDetailFromJson(json);
+  factory DocumentDetail.fromJson(Map<String, dynamic> json) =>
+      _$DocumentDetailFromJson(json);
 }
 
 @freezed
@@ -58,5 +59,6 @@ class SampleInfo with _$SampleInfo {
     required String label,
   }) = _SampleInfo;
 
-  factory SampleInfo.fromJson(Map<String, dynamic> json) => _$SampleInfoFromJson(json);
+  factory SampleInfo.fromJson(Map<String, dynamic> json) =>
+      _$SampleInfoFromJson(json);
 }

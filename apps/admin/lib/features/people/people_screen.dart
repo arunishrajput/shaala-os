@@ -6,6 +6,7 @@ import '../../core/skeleton.dart';
 import '../../core/theme.dart';
 import '../../data/models/class_section.dart';
 import '../../data/models/teacher.dart';
+import '../../data/repositories.dart';
 import '../../providers/people_providers.dart';
 import '../timetable/substitute_dialog.dart';
 
@@ -16,8 +17,12 @@ class PeopleScreen extends StatefulWidget {
   State<PeopleScreen> createState() => _PeopleScreenState();
 }
 
-class _PeopleScreenState extends State<PeopleScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this);
+class _PeopleScreenState extends State<PeopleScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -37,7 +42,10 @@ class _PeopleScreenState extends State<PeopleScreen> with SingleTickerProviderSt
             labelColor: AppColors.accent,
             unselectedLabelColor: AppColors.textSecondary,
             indicatorColor: AppColors.accent,
-            tabs: const [Tab(text: 'Teachers'), Tab(text: 'Classes')],
+            tabs: const [
+              Tab(text: 'Teachers'),
+              Tab(text: 'Classes'),
+            ],
           ),
         ),
         Expanded(
@@ -60,15 +68,23 @@ class _TeachersTab extends ConsumerWidget {
     return teachers.when(
       loading: () => const SkeletonList(),
       error: (err, _) => ErrorState(
-        message: 'Could not load teachers: $err',
+        message: 'Could not load teachers: ${friendlyError(err)}',
         onRetry: () => ref.invalidate(teachersProvider),
       ),
-      data: (list) => ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: list.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, index) => _TeacherTile(teacher: list[index]),
-      ),
+      data: (list) => list.isEmpty
+          ? const Center(
+              child: Text(
+                'No teachers seeded yet.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: list.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) =>
+                  _TeacherTile(teacher: list[index]),
+            ),
     );
   }
 }
@@ -94,7 +110,10 @@ class _TeacherTile extends ConsumerWidget {
         children: [
           Text(
             '${teacher.maxPeriodsPerWeek} periods/wk',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(width: 12),
           OutlinedButton.icon(
@@ -117,18 +136,25 @@ class _ClassesTab extends ConsumerWidget {
     return classes.when(
       loading: () => const SkeletonList(),
       error: (err, _) => ErrorState(
-        message: 'Could not load classes: $err',
+        message: 'Could not load classes: ${friendlyError(err)}',
         onRetry: () => ref.invalidate(classSectionsProvider),
       ),
-      data: (list) => ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: list.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final cs = list[index];
-          return _ClassTile(classSection: cs);
-        },
-      ),
+      data: (list) => list.isEmpty
+          ? const Center(
+              child: Text(
+                'No classes seeded yet.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: list.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final cs = list[index];
+                return _ClassTile(classSection: cs);
+              },
+            ),
     );
   }
 }
@@ -140,11 +166,17 @@ class _ClassTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: const Icon(Icons.groups_outlined, color: AppColors.textSecondary),
+      leading: const Icon(
+        Icons.groups_outlined,
+        color: AppColors.textSecondary,
+      ),
       title: Text(classSection.label),
       subtitle: Text('${classSection.strength} students'),
       trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
-      onTap: () => context.go('/people/class/${classSection.id}', extra: classSection.label),
+      onTap: () => context.go(
+        '/people/class/${classSection.id}',
+        extra: classSection.label,
+      ),
     );
   }
 }

@@ -18,7 +18,9 @@ class ActionItemsNotifier extends AsyncNotifier<List<ActionItemModel>> {
   Future<List<ActionItemModel>> build() {
     ref.listen(eventStreamProvider, (_, next) {
       final t = next.value?.type;
-      if (t == 'actions.updated' || t == 'action.resolved' || t == 'action.dismissed') {
+      if (t == 'actions.updated' ||
+          t == 'action.resolved' ||
+          t == 'action.dismissed') {
         ref.invalidateSelf();
       }
     });
@@ -50,7 +52,9 @@ class ActionItemsNotifier extends AsyncNotifier<List<ActionItemModel>> {
 }
 
 final actionItemsProvider =
-    AsyncNotifierProvider<ActionItemsNotifier, List<ActionItemModel>>(ActionItemsNotifier.new);
+    AsyncNotifierProvider<ActionItemsNotifier, List<ActionItemModel>>(
+      ActionItemsNotifier.new,
+    );
 
 final openActionsCountProvider = Provider.autoDispose<int>((ref) {
   return ref.watch(actionItemsProvider).valueOrNull?.length ?? 0;

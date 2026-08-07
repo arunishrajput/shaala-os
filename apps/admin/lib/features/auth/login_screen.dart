@@ -33,9 +33,9 @@ class LoginScreen extends ConsumerWidget {
                 Text(
                   'Paper in, decisions out.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 40),
                 if (auth.error != null) ...[
@@ -70,7 +70,9 @@ class _DemoLoginButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loading = ref.watch(authProvider).loading;
     return ElevatedButton(
-      onPressed: loading ? null : () => ref.read(authProvider.notifier).demoLogin(role),
+      onPressed: loading
+          ? null
+          : () => ref.read(authProvider.notifier).demoLogin(role),
       child: Text(label),
     );
   }

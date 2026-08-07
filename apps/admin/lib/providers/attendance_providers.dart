@@ -28,7 +28,7 @@ final attendanceTodayProvider =
 
 final selectedRollCallClassIdProvider = StateProvider<int?>((ref) => null);
 
-enum ScanFeedback { none, marked, duplicate, unknown }
+enum ScanFeedback { none, marked, duplicate, unknown, error }
 
 class KioskState {
   const KioskState({this.feedback = ScanFeedback.none, this.message});
@@ -51,26 +51,35 @@ class KioskNotifier extends Notifier<KioskState> {
     if (now.difference(_lastHandled) < const Duration(seconds: 2)) return;
     _lastHandled = now;
 
-    final result = await ref.read(attendanceRepositoryProvider).scan(qrToken);
-    switch (result['status']) {
-      case 'marked':
-        state = KioskState(
-          feedback: ScanFeedback.marked,
-          message: '${result['record']['student_name']} checked in',
-        );
-      case 'duplicate':
-        state = KioskState(
-          feedback: ScanFeedback.duplicate,
-          message: result['message'] as String?,
-        );
-      default:
-        state = const KioskState(
-          feedback: ScanFeedback.unknown,
-          message: 'Unregistered card.',
-        );
+    try {
+      final result = await ref.read(attendanceRepositoryProvider).scan(qrToken);
+      switch (result['status']) {
+        case 'marked':
+          state = KioskState(
+            feedback: ScanFeedback.marked,
+            message: '${result['record']['student_name']} checked in',
+          );
+        case 'duplicate':
+          state = KioskState(
+            feedback: ScanFeedback.duplicate,
+            message: result['message'] as String?,
+          );
+        default:
+          state = const KioskState(
+            feedback: ScanFeedback.unknown,
+            message: 'Unregistered card.',
+          );
+      }
+      ref.invalidate(attendanceTodayProvider);
+    } catch (e) {
+      state = KioskState(
+        feedback: ScanFeedback.error,
+        message: friendlyError(e),
+      );
     }
-    ref.invalidate(attendanceTodayProvider);
   }
 }
 
-final kioskProvider = NotifierProvider<KioskNotifier, KioskState>(KioskNotifier.new);
+final kioskProvider = NotifierProvider<KioskNotifier, KioskState>(
+  KioskNotifier.new,
+);

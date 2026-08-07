@@ -12,5 +12,6 @@ class TimeSlotInfo with _$TimeSlotInfo {
     required String label,
   }) = _TimeSlotInfo;
 
-  factory TimeSlotInfo.fromJson(Map<String, dynamic> json) => _$TimeSlotInfoFromJson(json);
+  factory TimeSlotInfo.fromJson(Map<String, dynamic> json) =>
+      _$TimeSlotInfoFromJson(json);
 }

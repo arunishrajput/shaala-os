@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/skeleton.dart';
 import '../../core/theme.dart';
 import '../../data/models/document.dart';
 import '../../data/repositories.dart';
@@ -14,7 +14,12 @@ import '../../providers/documents_providers.dart';
 const _confidenceThreshold = 0.85;
 
 class ReviewPanel extends ConsumerStatefulWidget {
-  const ReviewPanel({super.key});
+  const ReviewPanel({this.fullWidth = false, super.key});
+
+  /// True on narrow (phone-width) layouts, where this replaces the document
+  /// list instead of sitting beside it — PROMPT.md §7.2's "responsive down
+  /// to phone width" requirement, for a panel that's otherwise a fixed 680px.
+  final bool fullWidth;
 
   @override
   ConsumerState<ReviewPanel> createState() => _ReviewPanelState();
@@ -25,6 +30,7 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
   final Map<int, String> _corrections = {};
   int? _activeFieldId;
   bool _committing = false;
+  bool _rejecting = false;
   String? _commitError;
 
   @override
@@ -52,20 +58,32 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
         (fieldId: entry.key, correctedValue: entry.value),
     ];
     try {
-      await ref.read(documentsRepositoryProvider).commit(documentId, corrections);
+      await ref
+          .read(documentsRepositoryProvider)
+          .commit(documentId, corrections);
       ref.invalidate(documentsListProvider);
       ref.read(selectedDocumentIdProvider.notifier).state = null;
-    } on DioException catch (e) {
-      setState(() => _commitError = ApiException.fromDioException(e).message);
+    } catch (e) {
+      setState(() => _commitError = friendlyError(e));
     } finally {
       if (mounted) setState(() => _committing = false);
     }
   }
 
   Future<void> _reject(int documentId) async {
-    await ref.read(documentsRepositoryProvider).reject(documentId);
-    ref.invalidate(documentsListProvider);
-    ref.read(selectedDocumentIdProvider.notifier).state = null;
+    setState(() {
+      _rejecting = true;
+      _commitError = null;
+    });
+    try {
+      await ref.read(documentsRepositoryProvider).reject(documentId);
+      ref.invalidate(documentsListProvider);
+      ref.read(selectedDocumentIdProvider.notifier).state = null;
+    } catch (e) {
+      setState(() => _commitError = friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _rejecting = false);
+    }
   }
 
   @override
@@ -73,10 +91,12 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
     final detailAsync = ref.watch(documentDetailProvider);
 
     return Container(
-      width: 680,
-      decoration: const BoxDecoration(
+      width: widget.fullWidth ? null : 680,
+      decoration: BoxDecoration(
         color: AppColors.slateMid,
-        border: Border(left: BorderSide(color: AppColors.slateLight)),
+        border: widget.fullWidth
+            ? null
+            : const Border(left: BorderSide(color: AppColors.slateLight)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,10 +105,17 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Expanded(child: Text('Review', style: Theme.of(context).textTheme.titleMedium)),
+                Expanded(
+                  child: Text(
+                    'Review',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: () => ref.read(selectedDocumentIdProvider.notifier).state = null,
+                  onPressed: () =>
+                      ref.read(selectedDocumentIdProvider.notifier).state =
+                          null,
                 ),
               ],
             ),
@@ -96,10 +123,10 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
           const Divider(height: 1),
           Expanded(
             child: detailAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('$err', style: const TextStyle(color: AppColors.critical)),
+              loading: () => const SkeletonList(count: 4),
+              error: (err, _) => ErrorState(
+                message: 'Could not load this document: ${friendlyError(err)}',
+                onRetry: () => ref.invalidate(documentDetailProvider),
               ),
               data: (doc) {
                 if (doc == null) return const SizedBox();
@@ -114,9 +141,13 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
                   children: [
                     SizedBox(
                       height: 300,
-                      child: _ImagePane(dataUri: doc.originalUrl, activeBbox: activeBbox),
+                      child: _ImagePane(
+                        dataUri: doc.originalUrl,
+                        activeBbox: activeBbox,
+                      ),
                     ),
-                    if (doc.warnings.isNotEmpty) _WarningsBanner(warnings: doc.warnings),
+                    if (doc.warnings.isNotEmpty)
+                      _WarningsBanner(warnings: doc.warnings),
                     Expanded(
                       child: ListView(
                         padding: const EdgeInsets.all(16),
@@ -124,7 +155,9 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
                           Text(
                             '${doc.type.replaceAll('_', ' ')} · doc-type confidence '
                             '${((doc.docTypeConfidence ?? 0) * 100).round()}%',
-                            style: const TextStyle(color: AppColors.textSecondary),
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           for (final field in sorted)
@@ -132,7 +165,8 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
                               field: field,
                               controller: _controllerFor(field),
                               active: field.id == _activeFieldId,
-                              onFocus: () => setState(() => _activeFieldId = field.id),
+                              onFocus: () =>
+                                  setState(() => _activeFieldId = field.id),
                               onChanged: (v) => _corrections[field.id] = v,
                             ),
                           if (doc.rows.isNotEmpty) _RowsTable(rows: doc.rows),
@@ -152,12 +186,16 @@ class _ReviewPanelState extends ConsumerState<ReviewPanel> {
                       child: Row(
                         children: [
                           OutlinedButton(
-                            onPressed: _committing ? null : () => _reject(doc.id),
-                            child: const Text('Reject'),
+                            onPressed: (_committing || _rejecting)
+                                ? null
+                                : () => _reject(doc.id),
+                            child: Text(_rejecting ? 'Rejecting…' : 'Reject'),
                           ),
                           const Spacer(),
                           ElevatedButton(
-                            onPressed: _committing ? null : () => _commit(doc.id),
+                            onPressed: (_committing || _rejecting)
+                                ? null
+                                : () => _commit(doc.id),
                             child: Text(_committing ? 'Committing…' : 'Commit'),
                           ),
                         ],
@@ -205,9 +243,12 @@ class _FieldEditor extends StatelessWidget {
           style: TextStyle(color: lowConfidence ? AppColors.warning : null),
           decoration: InputDecoration(
             labelText: field.name.replaceAll('_', ' '),
-            helperText: '${(field.confidence * 100).round()}% confidence'
+            helperText:
+                '${(field.confidence * 100).round()}% confidence'
                 '${lowConfidence ? ' — check this' : ''}',
-            helperStyle: TextStyle(color: lowConfidence ? AppColors.warning : null),
+            helperStyle: TextStyle(
+              color: lowConfidence ? AppColors.warning : null,
+            ),
             border: const OutlineInputBorder(),
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(
@@ -252,7 +293,9 @@ class _RowsTable extends StatelessWidget {
               columns: [for (final k in keys) DataColumn(label: Text(k))],
               rows: [
                 for (final row in rows)
-                  DataRow(cells: [for (final k in keys) DataCell(Text('${row[k]}'))]),
+                  DataRow(
+                    cells: [for (final k in keys) DataCell(Text('${row[k]}'))],
+                  ),
               ],
             ),
           ),
@@ -278,7 +321,10 @@ class _WarningsBanner extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [for (final w in warnings) Text(w, style: const TextStyle(fontSize: 12))],
+        children: [
+          for (final w in warnings)
+            Text(w, style: const TextStyle(fontSize: 12)),
+        ],
       ),
     );
   }
@@ -336,7 +382,9 @@ class _ImagePaneState extends State<_ImagePane> {
             children: [
               Image.memory(_bytes!, fit: BoxFit.fill),
               if (widget.activeBbox != null)
-                Positioned.fill(child: CustomPaint(painter: _BboxPainter(widget.activeBbox!))),
+                Positioned.fill(
+                  child: CustomPaint(painter: _BboxPainter(widget.activeBbox!)),
+                ),
             ],
           ),
         ),
@@ -361,9 +409,13 @@ class _BboxPainter extends CustomPainter {
       ..color = AppColors.warning
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
-    canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), paint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      paint,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _BboxPainter oldDelegate) => oldDelegate.bbox != bbox;
+  bool shouldRepaint(covariant _BboxPainter oldDelegate) =>
+      oldDelegate.bbox != bbox;
 }

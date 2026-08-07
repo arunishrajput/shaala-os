@@ -12,7 +12,8 @@ class ClassSection with _$ClassSection {
     required int strength,
   }) = _ClassSection;
 
-  factory ClassSection.fromJson(Map<String, dynamic> json) => _$ClassSectionFromJson(json);
+  factory ClassSection.fromJson(Map<String, dynamic> json) =>
+      _$ClassSectionFromJson(json);
 
   const ClassSection._();
 

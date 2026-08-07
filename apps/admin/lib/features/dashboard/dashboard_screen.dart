@@ -39,11 +39,14 @@ class DashboardScreen extends ConsumerWidget {
               ),
               _StatCard(
                 label: 'Teachers',
-                value: teachers.whenOrNull(data: (d) => d.length.toString()) ?? '—',
+                value:
+                    teachers.whenOrNull(data: (d) => d.length.toString()) ??
+                    '—',
               ),
               _StatCard(
                 label: 'Class sections',
-                value: classes.whenOrNull(data: (d) => d.length.toString()) ?? '—',
+                value:
+                    classes.whenOrNull(data: (d) => d.length.toString()) ?? '—',
               ),
             ],
           ),

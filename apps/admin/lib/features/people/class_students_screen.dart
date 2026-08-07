@@ -4,10 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/skeleton.dart';
 import '../../core/theme.dart';
+import '../../data/repositories.dart';
 import '../../providers/people_providers.dart';
 
 class ClassStudentsScreen extends ConsumerWidget {
-  const ClassStudentsScreen({required this.classId, this.classLabel, super.key});
+  const ClassStudentsScreen({
+    required this.classId,
+    this.classLabel,
+    super.key,
+  });
 
   final int classId;
   final String? classLabel;
@@ -38,32 +43,49 @@ class ClassStudentsScreen extends ConsumerWidget {
           child: students.when(
             loading: () => const SkeletonList(),
             error: (err, _) => ErrorState(
-              message: 'Could not load students: $err',
+              message: 'Could not load students: ${friendlyError(err)}',
               onRetry: () => ref.invalidate(studentsByClassProvider(classId)),
             ),
-            data: (list) => ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: list.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final s = list[index];
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AppColors.accent.withValues(alpha: 0.2),
+            data: (list) => list.isEmpty
+                ? const Center(
                     child: Text(
-                      '${s.rollNo}',
-                      style: const TextStyle(color: AppColors.accent, fontSize: 12),
+                      'No students in this class.',
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: list.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final s = list[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppColors.accent.withValues(
+                            alpha: 0.2,
+                          ),
+                          child: Text(
+                            '${s.rollNo}',
+                            style: const TextStyle(
+                              color: AppColors.accent,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        title: Text(s.name),
+                        subtitle: Text(
+                          'Guardian: ${s.guardianName} · ${s.guardianPhone}',
+                        ),
+                        trailing: Text(
+                          s.admissionNo,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  title: Text(s.name),
-                  subtitle: Text('Guardian: ${s.guardianName} · ${s.guardianPhone}'),
-                  trailing: Text(
-                    s.admissionNo,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                  ),
-                );
-              },
-            ),
           ),
         ),
       ],

@@ -4,7 +4,9 @@ import '../data/models/notification.dart';
 import '../data/repositories.dart';
 import 'core_providers.dart';
 
-final notificationsRepositoryProvider = Provider<NotificationsRepository>((ref) {
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((
+  ref,
+) {
   return NotificationsRepository(ref.watch(apiClientProvider));
 });
 

@@ -38,9 +38,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/dashboard', builder: (context, state) => const DashboardScreen()),
-          GoRoute(path: '/timetable', builder: (context, state) => const TimetableScreen()),
-          GoRoute(path: '/documents', builder: (context, state) => const DocumentsScreen()),
+          GoRoute(
+            path: '/dashboard',
+            builder: (context, state) => const DashboardScreen(),
+          ),
+          GoRoute(
+            path: '/timetable',
+            builder: (context, state) => const TimetableScreen(),
+          ),
+          GoRoute(
+            path: '/documents',
+            builder: (context, state) => const DocumentsScreen(),
+          ),
           GoRoute(
             path: '/attendance',
             builder: (context, state) => const AttendanceScreen(),
@@ -58,7 +67,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(path: '/staffing', builder: (context, state) => const StaffingScreen()),
+          GoRoute(
+            path: '/staffing',
+            builder: (context, state) => const StaffingScreen(),
+          ),
         ],
       ),
     ],

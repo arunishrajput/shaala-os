@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/time_slot_info.dart';
@@ -41,7 +40,9 @@ final effectiveTeacherIdProvider = Provider.autoDispose<int?>((ref) {
   return ref.watch(teachersProvider).valueOrNull?.firstOrNull?.id;
 });
 
-final activeTimetableProvider = FutureProvider.autoDispose<ActiveTimetable>((ref) {
+final activeTimetableProvider = FutureProvider.autoDispose<ActiveTimetable>((
+  ref,
+) {
   final mode = ref.watch(timetableViewModeProvider);
   final repo = ref.watch(timetableRepositoryProvider);
   if (mode == TimetableViewMode.byClass) {
@@ -50,7 +51,9 @@ final activeTimetableProvider = FutureProvider.autoDispose<ActiveTimetable>((ref
   return repo.fetchActive(teacherId: ref.watch(effectiveTeacherIdProvider));
 });
 
-final explainProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) {
+final explainProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((
+  ref,
+) {
   final entryId = ref.watch(selectedEntryIdProvider);
   if (entryId == null) return Future.value(null);
   return ref.watch(timetableRepositoryProvider).explain(entryId);
@@ -73,14 +76,19 @@ class GenerateNotifier extends Notifier<GenerateState> {
       state = GenerateState(lastResult: result);
     } catch (e) {
       state = GenerateState(
-        lastResult: {'feasible': false, 'reasons': ['$e']},
+        lastResult: {
+          'feasible': false,
+          'reasons': [friendlyError(e)],
+        },
       );
     }
     ref.invalidate(activeTimetableProvider);
   }
 }
 
-final generateProvider = NotifierProvider<GenerateNotifier, GenerateState>(GenerateNotifier.new);
+final generateProvider = NotifierProvider<GenerateNotifier, GenerateState>(
+  GenerateNotifier.new,
+);
 
 /// The "mark absent -> assign substitutes" flow (PROMPT.md §6.2 point 3), open
 /// across whichever screen triggered it (the Action Center's uncovered_classes
@@ -117,19 +125,25 @@ class SubstitutePanelNotifier extends Notifier<SubstitutePanelState> {
   Future<void> open(int teacherId) async {
     state = const SubstitutePanelState(loading: true);
     try {
-      final result = await ref.read(timetableRepositoryProvider).markAbsence(teacherId);
+      final result = await ref
+          .read(timetableRepositoryProvider)
+          .markAbsence(teacherId);
       state = SubstitutePanelState(
         absenceId: result['absence_id'] as int,
         teacherName: result['teacher_name'] as String,
         date: result['date'] as String,
-        periods: (result['uncovered_periods'] as List).cast<Map<String, dynamic>>(),
+        periods: (result['uncovered_periods'] as List)
+            .cast<Map<String, dynamic>>(),
       );
-    } on DioException catch (e) {
-      state = SubstitutePanelState(error: ApiException.fromDioException(e).message);
+    } catch (e) {
+      state = SubstitutePanelState(error: friendlyError(e));
     }
   }
 
-  Future<void> assign(Map<String, dynamic> period, int candidateTeacherId) async {
+  Future<void> assign(
+    Map<String, dynamic> period,
+    int candidateTeacherId,
+  ) async {
     final key = '${period['class_id']}:${period['slot_id']}';
     state = SubstitutePanelState(
       absenceId: state.absenceId,
@@ -153,17 +167,19 @@ class SubstitutePanelNotifier extends Notifier<SubstitutePanelState> {
         date: state.date,
         periods: [
           for (final p in state.periods)
-            if (p['class_id'] != period['class_id'] || p['slot_id'] != period['slot_id']) p,
+            if (p['class_id'] != period['class_id'] ||
+                p['slot_id'] != period['slot_id'])
+              p,
         ],
       );
       ref.invalidate(activeTimetableProvider);
-    } on DioException catch (e) {
+    } catch (e) {
       state = SubstitutePanelState(
         absenceId: state.absenceId,
         teacherName: state.teacherName,
         date: state.date,
         periods: state.periods,
-        error: ApiException.fromDioException(e).message,
+        error: friendlyError(e),
       );
     }
   }
@@ -171,6 +187,7 @@ class SubstitutePanelNotifier extends Notifier<SubstitutePanelState> {
   void close() => state = const SubstitutePanelState();
 }
 
-final substitutePanelProvider = NotifierProvider<SubstitutePanelNotifier, SubstitutePanelState>(
-  SubstitutePanelNotifier.new,
-);
+final substitutePanelProvider =
+    NotifierProvider<SubstitutePanelNotifier, SubstitutePanelState>(
+      SubstitutePanelNotifier.new,
+    );

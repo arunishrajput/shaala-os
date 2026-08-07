@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/skeleton.dart';
 import '../../core/theme.dart';
 import '../../data/models/document.dart';
+import '../../data/repositories.dart';
 import '../../providers/documents_providers.dart';
 import 'review_panel.dart';
 
@@ -14,21 +15,33 @@ class DocumentsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedId = ref.watch(selectedDocumentIdProvider);
-
-    return Row(
-      children: [
+    final list = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        _Header(),
+        _BulkUploadBanner(),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _Header(),
-              _BulkUploadBanner(),
-              Expanded(child: Padding(padding: EdgeInsets.all(16), child: _DocumentList())),
-            ],
-          ),
+          child: Padding(padding: EdgeInsets.all(16), child: _DocumentList()),
         ),
-        if (selectedId != null) const ReviewPanel(),
       ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Phone-width: the fixed-680px review panel can't sit beside the
+        // list without overflowing, so it replaces it instead of joining it
+        // (PROMPT.md §7.2's "responsive down to phone width").
+        final narrow = constraints.maxWidth < 900;
+        if (narrow) {
+          return selectedId != null ? const ReviewPanel(fullWidth: true) : list;
+        }
+        return Row(
+          children: [
+            Expanded(child: list),
+            if (selectedId != null) const ReviewPanel(),
+          ],
+        );
+      },
     );
   }
 }
@@ -36,14 +49,27 @@ class DocumentsScreen extends ConsumerWidget {
 class _Header extends ConsumerWidget {
   const _Header();
 
-  Future<void> _pickAndUpload(WidgetRef ref, {required bool allowMultiple}) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: allowMultiple,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    await ref.read(bulkUploadProvider.notifier).uploadFiles(result.files);
+  Future<void> _pickAndUpload(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool allowMultiple,
+  }) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: allowMultiple,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      await ref.read(bulkUploadProvider.notifier).uploadFiles(result.files);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open file picker: ${friendlyError(e)}'),
+        ),
+      );
+    }
   }
 
   @override
@@ -58,16 +84,21 @@ class _Header extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('Documents', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Documents',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const Spacer(),
               OutlinedButton.icon(
-                onPressed: () => _pickAndUpload(ref, allowMultiple: false),
+                onPressed: () =>
+                    _pickAndUpload(context, ref, allowMultiple: false),
                 icon: const Icon(Icons.upload_file, size: 18),
                 label: const Text('Upload'),
               ),
               const SizedBox(width: 12),
               ElevatedButton.icon(
-                onPressed: () => _pickAndUpload(ref, allowMultiple: true),
+                onPressed: () =>
+                    _pickAndUpload(context, ref, allowMultiple: true),
                 icon: const Icon(Icons.library_add, size: 18),
                 label: const Text('Bulk upload'),
               ),
@@ -87,9 +118,7 @@ class _Header extends ConsumerWidget {
             error: (_, _) => const SizedBox(),
             data: (samples) => Wrap(
               spacing: 8,
-              children: [
-                for (final s in samples) _SampleChip(sample: s),
-              ],
+              children: [for (final s in samples) _SampleChip(sample: s)],
             ),
           ),
           const SizedBox(height: 16),
@@ -101,12 +130,19 @@ class _Header extends ConsumerWidget {
                 value: filter,
                 items: const [
                   DropdownMenuItem(value: null, child: Text('All')),
-                  DropdownMenuItem(value: 'needs_review', child: Text('Needs review')),
+                  DropdownMenuItem(
+                    value: 'needs_review',
+                    child: Text('Needs review'),
+                  ),
                   DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  DropdownMenuItem(value: 'committed', child: Text('Committed')),
+                  DropdownMenuItem(
+                    value: 'committed',
+                    child: Text('Committed'),
+                  ),
                   DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
                 ],
-                onChanged: (v) => ref.read(documentStatusFilterProvider.notifier).state = v,
+                onChanged: (v) =>
+                    ref.read(documentStatusFilterProvider.notifier).state = v,
               ),
             ],
           ),
@@ -126,9 +162,20 @@ class _SampleChip extends ConsumerWidget {
       avatar: const Icon(Icons.auto_awesome, size: 16, color: AppColors.accent),
       label: Text(sample.label),
       onPressed: () async {
-        final doc = await ref.read(documentsRepositoryProvider).trySample(sample.docType);
-        ref.invalidate(documentsListProvider);
-        ref.read(selectedDocumentIdProvider.notifier).state = doc.id;
+        try {
+          final doc = await ref
+              .read(documentsRepositoryProvider)
+              .trySample(sample.docType);
+          ref.invalidate(documentsListProvider);
+          ref.read(selectedDocumentIdProvider.notifier).state = doc.id;
+        } catch (e) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not load sample: ${friendlyError(e)}'),
+            ),
+          );
+        }
       },
     );
   }
@@ -163,7 +210,8 @@ class _BulkUploadBanner extends ConsumerWidget {
               const Spacer(),
               if (!upload.inProgress)
                 TextButton(
-                  onPressed: () => ref.read(bulkUploadProvider.notifier).clear(),
+                  onPressed: () =>
+                      ref.read(bulkUploadProvider.notifier).clear(),
                   child: const Text('Dismiss'),
                 ),
             ],
@@ -174,21 +222,29 @@ class _BulkUploadBanner extends ConsumerWidget {
             runSpacing: 8,
             children: [
               for (final item in upload.items)
-                Chip(
-                  avatar: Icon(
-                    switch (item.status) {
-                      UploadItemStatus.uploading => Icons.hourglass_top,
-                      UploadItemStatus.done => Icons.check_circle,
-                      UploadItemStatus.error => Icons.error,
-                    },
-                    size: 16,
-                    color: switch (item.status) {
-                      UploadItemStatus.uploading => AppColors.textSecondary,
-                      UploadItemStatus.done => AppColors.info,
-                      UploadItemStatus.error => AppColors.critical,
-                    },
+                Tooltip(
+                  message: item.status == UploadItemStatus.error
+                      ? (item.error ?? 'Upload failed.')
+                      : item.filename,
+                  child: Chip(
+                    avatar: Icon(
+                      switch (item.status) {
+                        UploadItemStatus.uploading => Icons.hourglass_top,
+                        UploadItemStatus.done => Icons.check_circle,
+                        UploadItemStatus.error => Icons.error,
+                      },
+                      size: 16,
+                      color: switch (item.status) {
+                        UploadItemStatus.uploading => AppColors.textSecondary,
+                        UploadItemStatus.done => AppColors.info,
+                        UploadItemStatus.error => AppColors.critical,
+                      },
+                    ),
+                    label: Text(
+                      item.filename,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
-                  label: Text(item.filename, style: const TextStyle(fontSize: 12)),
                 ),
             ],
           ),
@@ -207,13 +263,16 @@ class _DocumentList extends ConsumerWidget {
     return documentsAsync.when(
       loading: () => const SkeletonList(),
       error: (err, _) => ErrorState(
-        message: 'Could not load documents: $err',
+        message: 'Could not load documents: ${friendlyError(err)}',
         onRetry: () => ref.invalidate(documentsListProvider),
       ),
       data: (documents) {
         if (documents.isEmpty) {
           return const Center(
-            child: Text('No documents here.', style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(
+              'No documents here.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           );
         }
         return ListView.separated(

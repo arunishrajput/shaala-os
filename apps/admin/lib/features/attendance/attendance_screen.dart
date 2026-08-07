@@ -8,6 +8,7 @@ import '../../core/skeleton.dart';
 import '../../core/theme.dart';
 import '../../data/models/attendance_record.dart';
 import '../../data/models/student.dart';
+import '../../data/repositories.dart';
 import '../../providers/attendance_providers.dart';
 import '../../providers/people_providers.dart';
 
@@ -18,8 +19,12 @@ class AttendanceScreen extends StatefulWidget {
   State<AttendanceScreen> createState() => _AttendanceScreenState();
 }
 
-class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this);
+class _AttendanceScreenState extends State<AttendanceScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -42,14 +47,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   labelColor: AppColors.accent,
                   unselectedLabelColor: AppColors.textSecondary,
                   indicatorColor: AppColors.accent,
-                  tabs: const [Tab(text: 'Kiosk'), Tab(text: 'Manual roll call')],
+                  tabs: const [
+                    Tab(text: 'Kiosk'),
+                    Tab(text: 'Manual roll call'),
+                  ],
                 ),
               ),
               OutlinedButton.icon(
                 icon: const Icon(Icons.badge_outlined, size: 18),
                 label: const Text('Download ID cards'),
                 onPressed: () {
-                  web.window.open('${Env.apiBaseUrl}/students/id-cards.pdf', '_blank');
+                  web.window.open(
+                    '${Env.apiBaseUrl}/students/id-cards.pdf',
+                    '_blank',
+                  );
                 },
               ),
             ],
@@ -87,109 +98,129 @@ class _KioskTabState extends ConsumerState<_KioskTab> {
     final todayAsync = ref.watch(attendanceTodayProvider);
     final kiosk = ref.watch(kioskProvider);
 
+    final camera = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 320,
+            child: MobileScanner(
+              controller: _controller,
+              onDetect: (capture) {
+                final token = capture.barcodes.firstOrNull?.rawValue;
+                if (token != null) {
+                  ref.read(kioskProvider.notifier).handleScan(token);
+                }
+              },
+              errorBuilder: (context, error, child) => Container(
+                color: AppColors.slateMid,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Camera unavailable: ${error.errorCode.name}. '
+                  'Grant camera access, or use manual roll call.',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (kiosk.feedback != ScanFeedback.none) _FeedbackBanner(state: kiosk),
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 420,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Phone-width: the fixed-420px camera pane can't sit beside the
+          // feed without overflowing (PROMPT.md §7.2's "responsive down to
+          // phone width") -- stack them instead.
+          final narrow = constraints.maxWidth < 760;
+          final feed = todayAsync.when(
+            loading: () => const SkeletonList(),
+            error: (err, _) => ErrorState(
+              message:
+                  'Could not load today\'s attendance: ${friendlyError(err)}',
+              onRetry: () => ref.invalidate(attendanceTodayProvider),
+            ),
+            data: (today) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    height: 320,
-                    child: MobileScanner(
-                      controller: _controller,
-                      onDetect: (capture) {
-                        final token = capture.barcodes.firstOrNull?.rawValue;
-                        if (token != null) {
-                          ref.read(kioskProvider.notifier).handleScan(token);
-                        }
-                      },
-                      errorBuilder: (context, error, child) => Container(
-                        color: AppColors.slateMid,
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'Camera unavailable: ${error.errorCode.name}. '
-                          'Grant camera access, or use manual roll call.',
-                          style: const TextStyle(color: AppColors.textSecondary),
-                          textAlign: TextAlign.center,
-                        ),
+                Row(
+                  children: [
+                    Text(
+                      '${today.present} / 600',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(width: 8),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'checked in today',
+                        style: TextStyle(color: AppColors.textSecondary),
                       ),
                     ),
-                  ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                if (kiosk.feedback != ScanFeedback.none) _FeedbackBanner(state: kiosk),
+                Expanded(
+                  child: today.records.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No scans yet today.',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: today.records.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final r = today.records[index];
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(
+                                r.method == 'qr'
+                                    ? Icons.qr_code
+                                    : Icons.edit_outlined,
+                                color: AppColors.textSecondary,
+                                size: 18,
+                              ),
+                              title: Text(r.studentName),
+                              trailing: Text(
+                                r.status,
+                                style: const TextStyle(color: AppColors.info),
+                              ),
+                            );
+                          },
+                        ),
+                ),
               ],
             ),
-          ),
-          const SizedBox(width: 24),
-          Expanded(
-            child: todayAsync.when(
-              loading: () => const SkeletonList(),
-              error: (err, _) => ErrorState(
-                message: 'Could not load today\'s attendance: $err',
-                onRetry: () => ref.invalidate(attendanceTodayProvider),
-              ),
-              data: (today) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        '${today.present} / 600',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(width: 8),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          'checked in today',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: today.records.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No scans yet today.',
-                              style: TextStyle(color: AppColors.textSecondary),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: today.records.length,
-                            separatorBuilder: (_, _) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final r = today.records[index];
-                              return ListTile(
-                                dense: true,
-                                leading: Icon(
-                                  r.method == 'qr' ? Icons.qr_code : Icons.edit_outlined,
-                                  color: AppColors.textSecondary,
-                                  size: 18,
-                                ),
-                                title: Text(r.studentName),
-                                trailing: Text(
-                                  r.status,
-                                  style: const TextStyle(color: AppColors.info),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          );
+
+          if (narrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                camera,
+                const SizedBox(height: 16),
+                Expanded(child: feed),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 420, child: camera),
+              const SizedBox(width: 24),
+              Expanded(child: feed),
+            ],
+          );
+        },
       ),
     );
   }
@@ -205,11 +236,15 @@ class _FeedbackBanner extends StatelessWidget {
       ScanFeedback.marked => AppColors.info,
       ScanFeedback.duplicate => AppColors.warning,
       ScanFeedback.unknown => AppColors.critical,
+      ScanFeedback.error => AppColors.critical,
       ScanFeedback.none => AppColors.textSecondary,
     };
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Text(state.message ?? '', style: TextStyle(color: color)),
     );
   }
@@ -231,13 +266,18 @@ class _ManualRollCallTab extends ConsumerWidget {
             loading: () => const SizedBox(),
             error: (_, _) => const SizedBox(),
             data: (list) {
-              final selected = ref.watch(selectedRollCallClassIdProvider) ?? list.firstOrNull?.id;
+              final selected =
+                  ref.watch(selectedRollCallClassIdProvider) ??
+                  list.firstOrNull?.id;
               return DropdownButton<int>(
                 value: selected,
                 items: [
-                  for (final c in list) DropdownMenuItem(value: c.id, child: Text(c.label)),
+                  for (final c in list)
+                    DropdownMenuItem(value: c.id, child: Text(c.label)),
                 ],
-                onChanged: (id) => ref.read(selectedRollCallClassIdProvider.notifier).state = id,
+                onChanged: (id) =>
+                    ref.read(selectedRollCallClassIdProvider.notifier).state =
+                        id,
               );
             },
           ),
@@ -247,17 +287,35 @@ class _ManualRollCallTab extends ConsumerWidget {
               builder: (context, ref, _) {
                 final classes = ref.watch(classSectionsProvider).valueOrNull;
                 final classId =
-                    ref.watch(selectedRollCallClassIdProvider) ?? classes?.firstOrNull?.id;
-                if (classId == null) return const SizedBox();
+                    ref.watch(selectedRollCallClassIdProvider) ??
+                    classes?.firstOrNull?.id;
+                if (classId == null) {
+                  return const Center(
+                    child: Text(
+                      'No classes seeded yet.',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  );
+                }
                 final students = ref.watch(studentsByClassProvider(classId));
                 return students.when(
                   loading: () => const SkeletonList(),
-                  error: (err, _) => ErrorState(message: 'Could not load students: $err'),
-                  data: (list) => ListView.separated(
-                    itemCount: list.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) => _RollCallRow(student: list[index]),
+                  error: (err, _) => ErrorState(
+                    message: 'Could not load students: ${friendlyError(err)}',
                   ),
+                  data: (list) => list.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No students in this class.',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: list.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) =>
+                              _RollCallRow(student: list[index]),
+                        ),
                 );
               },
             ),
@@ -275,13 +333,23 @@ class _RollCallRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final today = ref.watch(attendanceTodayProvider).valueOrNull;
-    final current = today?.records
-        .cast<AttendanceRecordModel?>()
-        .firstWhere((r) => r?.studentId == student.id, orElse: () => null);
+    final current = today?.records.cast<AttendanceRecordModel?>().firstWhere(
+      (r) => r?.studentId == student.id,
+      orElse: () => null,
+    );
 
     Future<void> mark(String status) async {
-      await ref.read(attendanceRepositoryProvider).manual(student.id, status);
-      ref.invalidate(attendanceTodayProvider);
+      try {
+        await ref.read(attendanceRepositoryProvider).manual(student.id, status);
+        ref.invalidate(attendanceTodayProvider);
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not mark attendance: ${friendlyError(e)}'),
+          ),
+        );
+      }
     }
 
     return ListTile(

@@ -8,10 +8,14 @@ final staffingRepositoryProvider = Provider<StaffingRepository>((ref) {
   return StaffingRepository(ref.watch(apiClientProvider));
 });
 
-final staffingForecastProvider = FutureProvider.autoDispose<StaffingForecast>((ref) {
+final staffingForecastProvider = FutureProvider.autoDispose<StaffingForecast>((
+  ref,
+) {
   return ref.watch(staffingRepositoryProvider).fetchForecast();
 });
 
-final staffingBacktestProvider = FutureProvider.autoDispose<StaffingBacktest>((ref) {
+final staffingBacktestProvider = FutureProvider.autoDispose<StaffingBacktest>((
+  ref,
+) {
   return ref.watch(staffingRepositoryProvider).fetchBacktest();
 });

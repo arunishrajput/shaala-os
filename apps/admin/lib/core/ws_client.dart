@@ -34,7 +34,9 @@ class WsClient {
   Stream<AppEvent> get events => _controller.stream;
 
   void _connect() {
-    final channel = WebSocketChannel.connect(Uri.parse('${Env.wsBaseUrl}/ws/events'));
+    final channel = WebSocketChannel.connect(
+      Uri.parse('${Env.wsBaseUrl}/ws/events'),
+    );
     _channel = channel;
     channel.stream.listen(
       (raw) {

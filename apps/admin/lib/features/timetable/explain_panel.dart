@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../../data/repositories.dart';
 import '../../providers/timetable_providers.dart';
 
 class ExplainPanel extends ConsumerWidget {
-  const ExplainPanel({super.key});
+  const ExplainPanel({this.fullWidth = false, super.key});
+
+  /// True on narrow (phone-width) layouts, where this replaces the grid
+  /// instead of sitting beside it — see the LayoutBuilder in
+  /// timetable_screen.dart.
+  final bool fullWidth;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -13,10 +19,12 @@ class ExplainPanel extends ConsumerWidget {
     final explainAsync = ref.watch(explainProvider);
 
     return Container(
-      width: 360,
-      decoration: const BoxDecoration(
+      width: fullWidth ? null : 360,
+      decoration: BoxDecoration(
         color: AppColors.slateMid,
-        border: Border(left: BorderSide(color: AppColors.slateLight)),
+        border: fullWidth
+            ? null
+            : const Border(left: BorderSide(color: AppColors.slateLight)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -26,11 +34,15 @@ class ExplainPanel extends ConsumerWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text('Explain', style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    'Explain',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: () => ref.read(selectedEntryIdProvider.notifier).state = null,
+                  onPressed: () =>
+                      ref.read(selectedEntryIdProvider.notifier).state = null,
                 ),
               ],
             ),
@@ -64,7 +76,10 @@ class ExplainPanel extends ConsumerWidget {
                     ),
                     error: (err, _) => Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text('$err', style: const TextStyle(color: AppColors.critical)),
+                      child: Text(
+                        'Could not explain this cell: ${friendlyError(err)}',
+                        style: const TextStyle(color: AppColors.critical),
+                      ),
                     ),
                     data: (data) => data == null
                         ? const SizedBox()
@@ -84,7 +99,8 @@ class _ExplainBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reasons = (data['reasons'] as List).cast<String>();
-    final alternatives = (data['alternatives'] as List).cast<Map<String, dynamic>>();
+    final alternatives = (data['alternatives'] as List)
+        .cast<Map<String, dynamic>>();
     final resolveDiff = data['resolve_diff'] as Map<String, dynamic>?;
 
     return ListView(
@@ -92,7 +108,9 @@ class _ExplainBody extends StatelessWidget {
       children: [
         Text(
           data['title'] as String,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.accent),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: AppColors.accent),
         ),
         const SizedBox(height: 4),
         Text(
@@ -104,14 +122,23 @@ class _ExplainBody extends StatelessWidget {
         const SizedBox(height: 8),
         for (final r in reasons) _Bullet(text: r),
         const SizedBox(height: 20),
-        const Text('Ranked alternatives', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          'Ranked alternatives',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         if (alternatives.isEmpty)
-          const Text('No feasible alternative slot found.', style: TextStyle(color: AppColors.textSecondary)),
+          const Text(
+            'No feasible alternative slot found.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
         for (final alt in alternatives) _AlternativeCard(alt: alt),
         if (resolveDiff != null && resolveDiff['available'] == true) ...[
           const SizedBox(height: 20),
-          const Text('If this cell were forbidden entirely', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'If this cell were forbidden entirely',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Text(
             'Re-solving the whole timetable without it changes the objective by '
@@ -164,12 +191,21 @@ class _AlternativeCard extends StatelessWidget {
                 children: [
                   Text('${alt['slot']} · ${alt['room']}'),
                   ...((alt['reasons'] as List).cast<String>()).map(
-                    (r) => Text(r, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    (r) => Text(
+                      r,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            Text('$sign${cost.toInt()}', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            Text(
+              '$sign${cost.toInt()}',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),

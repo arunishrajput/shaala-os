@@ -17,5 +17,6 @@ class Student with _$Student {
     @JsonKey(name: 'photo_url') String? photoUrl,
   }) = _Student;
 
-  factory Student.fromJson(Map<String, dynamic> json) => _$StudentFromJson(json);
+  factory Student.fromJson(Map<String, dynamic> json) =>
+      _$StudentFromJson(json);
 }

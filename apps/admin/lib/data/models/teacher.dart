@@ -16,5 +16,6 @@ class Teacher with _$Teacher {
     @JsonKey(name: 'max_periods_per_day') required int maxPeriodsPerDay,
   }) = _Teacher;
 
-  factory Teacher.fromJson(Map<String, dynamic> json) => _$TeacherFromJson(json);
+  factory Teacher.fromJson(Map<String, dynamic> json) =>
+      _$TeacherFromJson(json);
 }

@@ -5,7 +5,8 @@ import 'env.dart';
 /// Thin Dio wrapper. Domain-specific calls live in data/repositories.dart —
 /// this class only owns the HTTP transport and auth header injection.
 class ApiClient {
-  ApiClient({String? Function()? tokenProvider}) : _tokenProvider = tokenProvider {
+  ApiClient({String? Function()? tokenProvider})
+    : _tokenProvider = tokenProvider {
     dio = Dio(
       BaseOptions(
         baseUrl: Env.apiBaseUrl,

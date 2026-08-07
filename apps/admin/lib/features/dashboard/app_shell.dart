@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:web/web.dart' as web;
 
 import '../../core/theme.dart';
+import '../../data/repositories.dart';
 import '../../providers/actions_providers.dart';
 import '../../providers/core_providers.dart';
 
@@ -128,7 +129,10 @@ class _LiveClockState extends State<_LiveClock> {
     final h = _now.hour.toString().padLeft(2, '0');
     final m = _now.minute.toString().padLeft(2, '0');
     final s = _now.second.toString().padLeft(2, '0');
-    return Text('$h:$m:$s', style: const TextStyle(color: AppColors.textSecondary));
+    return Text(
+      '$h:$m:$s',
+      style: const TextStyle(color: AppColors.textSecondary),
+    );
   }
 }
 
@@ -139,7 +143,9 @@ class _ActionBell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final count = ref.watch(openActionsCountProvider);
     return IconButton(
-      tooltip: count == 0 ? 'Action Center' : '$count item${count == 1 ? '' : 's'} need attention',
+      tooltip: count == 0
+          ? 'Action Center'
+          : '$count item${count == 1 ? '' : 's'} need attention',
       onPressed: () => context.go('/dashboard'),
       icon: Badge(
         label: Text('$count'),
@@ -185,7 +191,11 @@ class _ResetDemoButton extends ConsumerWidget {
           content: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
               SizedBox(width: 16),
               Text('Resetting demo data…'),
             ],
@@ -203,9 +213,9 @@ class _ResetDemoButton extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Reset failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Reset failed: ${friendlyError(e)}')),
+      );
     }
   }
 

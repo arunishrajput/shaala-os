@@ -23,11 +23,15 @@ class ClassSectionsNotifier extends AsyncNotifier<List<ClassSection>> {
   }
 }
 
-final classSectionsProvider = AsyncNotifierProvider<ClassSectionsNotifier, List<ClassSection>>(
-  ClassSectionsNotifier.new,
-);
+final classSectionsProvider =
+    AsyncNotifierProvider<ClassSectionsNotifier, List<ClassSection>>(
+      ClassSectionsNotifier.new,
+    );
 
-final studentsByClassProvider = FutureProvider.family<List<Student>, int>((ref, classId) {
+final studentsByClassProvider = FutureProvider.family<List<Student>, int>((
+  ref,
+  classId,
+) {
   return ref.read(peopleRepositoryProvider).fetchStudents(classId: classId);
 });
 
@@ -41,7 +45,10 @@ class StudentsCountNotifier extends AsyncNotifier<int> {
     ref.listen(eventStreamProvider, (_, next) {
       if (next.value?.type == 'document.committed') ref.invalidateSelf();
     });
-    return ref.read(peopleRepositoryProvider).fetchStudents().then((s) => s.length);
+    return ref
+        .read(peopleRepositoryProvider)
+        .fetchStudents()
+        .then((s) => s.length);
   }
 }
 

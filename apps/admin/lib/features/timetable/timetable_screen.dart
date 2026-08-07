@@ -15,20 +15,35 @@ class TimetableScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedEntryId = ref.watch(selectedEntryIdProvider);
-
-    return Row(
-      children: [
+    final grid = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        _Header(),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _Header(),
-              Expanded(child: Padding(padding: EdgeInsets.all(16), child: TimetableGrid())),
-            ],
-          ),
+          child: Padding(padding: EdgeInsets.all(16), child: TimetableGrid()),
         ),
-        if (selectedEntryId != null) const ExplainPanel(),
       ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Phone-width: the fixed-360px explain panel can't sit beside the
+        // grid without overflowing (PROMPT.md §7.2's "responsive down to
+        // phone width") -- the grid itself already scrolls horizontally on
+        // its own, this is only about the panel joining it.
+        final narrow = constraints.maxWidth < 900;
+        if (narrow) {
+          return selectedEntryId != null
+              ? const ExplainPanel(fullWidth: true)
+              : grid;
+        }
+        return Row(
+          children: [
+            Expanded(child: grid),
+            if (selectedEntryId != null) const ExplainPanel(),
+          ],
+        );
+      },
     );
   }
 }
@@ -50,7 +65,10 @@ class _Header extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('Timetable', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Timetable',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const Spacer(),
               ElevatedButton.icon(
                 onPressed: generateState.generating
@@ -60,25 +78,36 @@ class _Header extends ConsumerWidget {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.auto_awesome, size: 18),
                 label: Text(generateState.generating ? 'Solving…' : 'Generate'),
               ),
             ],
           ),
-          if (generateState.lastResult != null) _StatsBanner(result: generateState.lastResult!),
+          if (generateState.lastResult != null)
+            _StatsBanner(result: generateState.lastResult!),
           const SizedBox(height: 16),
           Row(
             children: [
               SegmentedButton<TimetableViewMode>(
                 segments: const [
-                  ButtonSegment(value: TimetableViewMode.byClass, label: Text('By Class')),
-                  ButtonSegment(value: TimetableViewMode.byTeacher, label: Text('By Teacher')),
+                  ButtonSegment(
+                    value: TimetableViewMode.byClass,
+                    label: Text('By Class'),
+                  ),
+                  ButtonSegment(
+                    value: TimetableViewMode.byTeacher,
+                    label: Text('By Teacher'),
+                  ),
                 ],
                 selected: {mode},
                 onSelectionChanged: (s) =>
-                    ref.read(timetableViewModeProvider.notifier).state = s.first,
+                    ref.read(timetableViewModeProvider.notifier).state =
+                        s.first,
               ),
               const SizedBox(width: 16),
               if (mode == TimetableViewMode.byClass)
@@ -112,7 +141,8 @@ class _ClassDropdown extends ConsumerWidget {
       value: selected,
       hint: const Text('Choose a class'),
       items: [
-        for (final c in classes) DropdownMenuItem(value: c.id, child: Text(c.label)),
+        for (final c in classes)
+          DropdownMenuItem(value: c.id, child: Text(c.label)),
       ],
       onChanged: (id) => ref.read(selectedClassIdProvider.notifier).state = id,
     );
@@ -130,9 +160,11 @@ class _TeacherDropdown extends ConsumerWidget {
       value: selected,
       hint: const Text('Choose a teacher'),
       items: [
-        for (final t in teachers) DropdownMenuItem(value: t.id, child: Text(t.name)),
+        for (final t in teachers)
+          DropdownMenuItem(value: t.id, child: Text(t.name)),
       ],
-      onChanged: (id) => ref.read(selectedTeacherIdProvider.notifier).state = id,
+      onChanged: (id) =>
+          ref.read(selectedTeacherIdProvider.notifier).state = id,
     );
   }
 }
@@ -149,13 +181,16 @@ class _StatsBanner extends StatelessWidget {
     final message = feasible && stats != null
         ? '${stats['total_entries']} assignments across the school in '
               '${stats['wall_time_s']}s, zero hard violations.'
-        : ((result['reasons'] as List?)?.cast<String>().join(' ') ?? 'Could not generate.');
+        : ((result['reasons'] as List?)?.cast<String>().join(' ') ??
+              'Could not generate.');
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: (feasible ? AppColors.info : AppColors.critical).withValues(alpha: 0.15),
+        color: (feasible ? AppColors.info : AppColors.critical).withValues(
+          alpha: 0.15,
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

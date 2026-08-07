@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
@@ -27,18 +26,22 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final result = await ref.read(authRepositoryProvider).demoLogin(role);
       state = AuthState(result: result);
-    } on DioException catch (e) {
-      state = AuthState(error: ApiException.fromDioException(e).message);
+    } catch (e) {
+      state = AuthState(error: friendlyError(e));
     }
   }
 
   void logout() => state = const AuthState();
 }
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient(tokenProvider: () => ref.read(authProvider).result?.accessToken);
+  return ApiClient(
+    tokenProvider: () => ref.read(authProvider).result?.accessToken,
+  );
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

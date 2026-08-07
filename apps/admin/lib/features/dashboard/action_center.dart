@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/skeleton.dart';
 import '../../core/theme.dart';
 import '../../data/models/action_item.dart';
+import '../../data/repositories.dart';
 import '../../providers/actions_providers.dart';
 import '../../providers/timetable_providers.dart';
 import '../timetable/substitute_dialog.dart';
@@ -19,32 +21,47 @@ Color _severityColor(String severity) {
   }
 }
 
+void _showActionError(BuildContext context, Object error) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(friendlyError(error))));
+}
+
 /// Screens that already exist for a given signal kind to hand off to.
 /// low_attendance_trend's "Draft parent messages" is wired in a later commit;
 /// until then it's an honest one-tap resolve rather than a fake button.
-Future<void> _handlePrimaryAction(BuildContext context, WidgetRef ref, ActionItemModel item) async {
-  switch (item.kind) {
-    case 'uncovered_classes':
-      final teacherId = item.payload['teacher_id'];
-      if (teacherId is int) {
-        await showSubstituteDialog(context, ref, teacherId);
-      }
-    case 'documents_need_review':
-      context.go('/documents');
-    case 'staffing_shortfall':
-      context.go('/staffing');
-    case 'room_conflict':
-      context.go('/timetable');
-    case 'free_periods':
-      final classId = item.payload['class_id'];
-      if (classId is int) {
-        ref.read(selectedClassIdProvider.notifier).state = classId;
-      }
-      context.go('/timetable');
-    case 'low_attendance_trend':
-      await ref.read(actionItemsProvider.notifier).draftMessages(item.id);
-    default:
-      ref.read(actionItemsProvider.notifier).resolve(item.id);
+Future<void> _handlePrimaryAction(
+  BuildContext context,
+  WidgetRef ref,
+  ActionItemModel item,
+) async {
+  try {
+    switch (item.kind) {
+      case 'uncovered_classes':
+        final teacherId = item.payload['teacher_id'];
+        if (teacherId is int) {
+          await showSubstituteDialog(context, ref, teacherId);
+        }
+      case 'documents_need_review':
+        context.go('/documents');
+      case 'staffing_shortfall':
+        context.go('/staffing');
+      case 'room_conflict':
+        context.go('/timetable');
+      case 'free_periods':
+        final classId = item.payload['class_id'];
+        if (classId is int) {
+          ref.read(selectedClassIdProvider.notifier).state = classId;
+        }
+        context.go('/timetable');
+      case 'low_attendance_trend':
+        await ref.read(actionItemsProvider.notifier).draftMessages(item.id);
+      default:
+        await ref.read(actionItemsProvider.notifier).resolve(item.id);
+    }
+  } catch (e) {
+    if (context.mounted) _showActionError(context, e);
   }
 }
 
@@ -57,7 +74,10 @@ class ActionCenter extends ConsumerWidget {
 
     return actionsAsync.when(
       loading: () => const _SkeletonStack(),
-      error: (err, _) => Text('$err', style: const TextStyle(color: AppColors.critical)),
+      error: (err, _) => ErrorState(
+        message: 'Could not load the Action Center: ${friendlyError(err)}',
+        onRetry: () => ref.invalidate(actionItemsProvider),
+      ),
       data: (items) {
         if (items.isEmpty) {
           return Card(
@@ -115,11 +135,17 @@ class _ActionCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(
+                      item.title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       item.body,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -133,8 +159,20 @@ class _ActionCard extends ConsumerWidget {
               ),
               IconButton(
                 tooltip: 'Dismiss',
-                icon: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
-                onPressed: () => ref.read(actionItemsProvider.notifier).dismiss(item.id),
+                icon: const Icon(
+                  Icons.close,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
+                onPressed: () async {
+                  try {
+                    await ref
+                        .read(actionItemsProvider.notifier)
+                        .dismiss(item.id);
+                  } catch (e) {
+                    if (context.mounted) _showActionError(context, e);
+                  }
+                },
               ),
             ],
           ),

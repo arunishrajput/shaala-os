@@ -8,10 +8,12 @@ class StaffingDay with _$StaffingDay {
   const factory StaffingDay({
     required String date,
     @JsonKey(name: 'expected_absences') required double expectedAbsences,
-    @JsonKey(name: 'expected_uncovered_periods') required double expectedUncoveredPeriods,
+    @JsonKey(name: 'expected_uncovered_periods')
+    required double expectedUncoveredPeriods,
   }) = _StaffingDay;
 
-  factory StaffingDay.fromJson(Map<String, dynamic> json) => _$StaffingDayFromJson(json);
+  factory StaffingDay.fromJson(Map<String, dynamic> json) =>
+      _$StaffingDayFromJson(json);
 }
 
 @freezed
@@ -48,7 +50,8 @@ class BacktestPoint with _$BacktestPoint {
     required int actual,
   }) = _BacktestPoint;
 
-  factory BacktestPoint.fromJson(Map<String, dynamic> json) => _$BacktestPointFromJson(json);
+  factory BacktestPoint.fromJson(Map<String, dynamic> json) =>
+      _$BacktestPointFromJson(json);
 }
 
 @freezed

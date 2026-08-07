@@ -19,7 +19,10 @@ class AuthRepository {
   final ApiClient _client;
 
   Future<AuthResult> demoLogin(String role) async {
-    final resp = await _client.dio.post('/auth/demo-login', queryParameters: {'role': role});
+    final resp = await _client.dio.post(
+      '/auth/demo-login',
+      queryParameters: {'role': role},
+    );
     return AuthResult.fromJson(resp.data as Map<String, dynamic>);
   }
 
@@ -38,7 +41,9 @@ class PeopleRepository {
 
   Future<List<Teacher>> fetchTeachers() async {
     final resp = await _client.dio.get('/teachers');
-    return (resp.data as List).map((e) => Teacher.fromJson(e as Map<String, dynamic>)).toList();
+    return (resp.data as List)
+        .map((e) => Teacher.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Student>> fetchStudents({int? classId}) async {
@@ -46,7 +51,9 @@ class PeopleRepository {
       '/students',
       queryParameters: classId != null ? {'class_id': classId} : null,
     );
-    return (resp.data as List).map((e) => Student.fromJson(e as Map<String, dynamic>)).toList();
+    return (resp.data as List)
+        .map((e) => Student.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<ClassSection>> fetchClasses() async {
@@ -72,10 +79,7 @@ class TimetableRepository {
   Future<ActiveTimetable> fetchActive({int? classId, int? teacherId}) async {
     final resp = await _client.dio.get(
       '/timetable/active',
-      queryParameters: {
-        'class_id': ?classId,
-        'teacher_id': ?teacherId,
-      },
+      queryParameters: {'class_id': ?classId, 'teacher_id': ?teacherId},
     );
     return ActiveTimetable.fromJson(resp.data as Map<String, dynamic>);
   }
@@ -85,7 +89,11 @@ class TimetableRepository {
     return resp.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> validateMove(int entryId, int roomId, int slotId) async {
+  Future<Map<String, dynamic>> validateMove(
+    int entryId,
+    int roomId,
+    int slotId,
+  ) async {
     final resp = await _client.dio.post(
       '/timetable/validate-move',
       data: {'entry_id': entryId, 'room_id': roomId, 'slot_id': slotId},
@@ -109,7 +117,10 @@ class TimetableRepository {
   }
 
   Future<Map<String, dynamic>> markAbsence(int teacherId) async {
-    final resp = await _client.dio.post('/timetable/absence', data: {'teacher_id': teacherId});
+    final resp = await _client.dio.post(
+      '/timetable/absence',
+      data: {'teacher_id': teacherId},
+    );
     return resp.data as Map<String, dynamic>;
   }
 
@@ -138,7 +149,9 @@ class DocumentsRepository {
 
   Future<List<SampleInfo>> fetchSamples() async {
     final resp = await _client.dio.get('/documents/samples');
-    return (resp.data as List).map((e) => SampleInfo.fromJson(e as Map<String, dynamic>)).toList();
+    return (resp.data as List)
+        .map((e) => SampleInfo.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<DocumentDetail> trySample(String docType) async {
@@ -156,7 +169,9 @@ class DocumentsRepository {
     }
     final resp = await _client.dio.post('/documents/upload', data: form);
     final list = (resp.data as Map<String, dynamic>)['documents'] as List;
-    return list.map((e) => DocumentSummary.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => DocumentSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<DocumentSummary>> fetchDocuments({String? status}) async {
@@ -201,7 +216,10 @@ class ActionsRepository {
   final ApiClient _client;
 
   Future<List<ActionItemModel>> fetchActions({String? status = 'open'}) async {
-    final resp = await _client.dio.get('/actions', queryParameters: {'status': ?status});
+    final resp = await _client.dio.get(
+      '/actions',
+      queryParameters: {'status': ?status},
+    );
     return (resp.data as List)
         .map((e) => ActionItemModel.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -228,7 +246,10 @@ class AttendanceRepository {
   final ApiClient _client;
 
   Future<Map<String, dynamic>> scan(String qrToken) async {
-    final resp = await _client.dio.post('/attendance/scan', data: {'qr_token': qrToken});
+    final resp = await _client.dio.post(
+      '/attendance/scan',
+      data: {'qr_token': qrToken},
+    );
     return resp.data as Map<String, dynamic>;
   }
 
@@ -251,12 +272,18 @@ class StaffingRepository {
   final ApiClient _client;
 
   Future<StaffingForecast> fetchForecast({int days = 7}) async {
-    final resp = await _client.dio.get('/staffing/forecast', queryParameters: {'days': days});
+    final resp = await _client.dio.get(
+      '/staffing/forecast',
+      queryParameters: {'days': days},
+    );
     return StaffingForecast.fromJson(resp.data as Map<String, dynamic>);
   }
 
   Future<StaffingBacktest> fetchBacktest({int days = 30}) async {
-    final resp = await _client.dio.get('/staffing/backtest', queryParameters: {'days': days});
+    final resp = await _client.dio.get(
+      '/staffing/backtest',
+      queryParameters: {'days': days},
+    );
     return StaffingBacktest.fromJson(resp.data as Map<String, dynamic>);
   }
 }
@@ -268,7 +295,10 @@ class DemoRepository {
   Future<void> reset() async {
     await _client.dio.post(
       '/demo/reset',
-      options: Options(sendTimeout: const Duration(seconds: 30), receiveTimeout: const Duration(seconds: 30)),
+      options: Options(
+        sendTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
     );
   }
 }
@@ -278,7 +308,10 @@ class NotificationsRepository {
   final ApiClient _client;
 
   Future<List<NotificationModel>> fetch({int limit = 20}) async {
-    final resp = await _client.dio.get('/notifications', queryParameters: {'limit': limit});
+    final resp = await _client.dio.get(
+      '/notifications',
+      queryParameters: {'limit': limit},
+    );
     return (resp.data as List)
         .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -292,10 +325,27 @@ class ApiException implements Exception {
   final String message;
 
   factory ApiException.fromDioException(DioException e) {
-    final detail = e.response?.data is Map ? (e.response?.data as Map)['detail'] : null;
-    return ApiException(detail?.toString() ?? e.message ?? 'Something went wrong');
+    final detail = e.response?.data is Map
+        ? (e.response?.data as Map)['detail']
+        : null;
+    return ApiException(
+      detail?.toString() ?? e.message ?? 'Something went wrong',
+    );
   }
 
   @override
   String toString() => message;
+}
+
+/// Most screens hand a `FutureProvider`/`AsyncNotifier` error straight to
+/// `AsyncValue.when`'s `error` branch without ever catching it -- so unless
+/// something converts it first, `DioException.toString()` (a multi-line,
+/// technical dump) is what a judge sees on screen. Route every error branch
+/// through this instead of interpolating the exception directly.
+String friendlyError(Object error) {
+  if (error is ApiException) return error.message;
+  if (error is DioException) {
+    return ApiException.fromDioException(error).message;
+  }
+  return 'Something went wrong.';
 }

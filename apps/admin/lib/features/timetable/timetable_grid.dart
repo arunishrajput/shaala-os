@@ -5,6 +5,7 @@ import '../../core/skeleton.dart';
 import '../../core/theme.dart';
 import '../../data/models/time_slot_info.dart';
 import '../../data/models/timetable_entry.dart';
+import '../../data/repositories.dart';
 import '../../providers/timetable_providers.dart';
 
 const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -21,14 +22,16 @@ class TimetableGrid extends ConsumerWidget {
 
     return slotsAsync.when(
       loading: () => const SkeletonList(),
-      error: (err, _) => ErrorState(message: 'Could not load slots: $err'),
+      error: (err, _) =>
+          ErrorState(message: 'Could not load slots: ${friendlyError(err)}'),
       data: (slots) => timetableAsync.when(
         loading: () => const SkeletonList(),
         error: (err, _) => ErrorState(
-          message: 'Could not load timetable: $err',
+          message: 'Could not load timetable: ${friendlyError(err)}',
           onRetry: () => ref.invalidate(activeTimetableProvider),
         ),
-        data: (timetable) => _Grid(slots: slots, entries: timetable.entries, mode: mode),
+        data: (timetable) =>
+            _Grid(slots: slots, entries: timetable.entries, mode: mode),
       ),
     );
   }
@@ -64,7 +67,10 @@ class _Grid extends StatelessWidget {
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(8),
-                      child: Text(d, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text(
+                        d,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
               ],
@@ -72,7 +78,12 @@ class _Grid extends StatelessWidget {
             for (final p in periods)
               TableRow(
                 children: [
-                  Center(child: Text('P$p', style: const TextStyle(color: AppColors.textSecondary))),
+                  Center(
+                    child: Text(
+                      'P$p',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ),
                   for (var day = 0; day < 6; day++)
                     _Cell(
                       slot: slotByDayPeriod['${day}_$p'],
@@ -106,7 +117,8 @@ class _Cell extends ConsumerWidget {
 
     return DragTarget<TimetableEntry>(
       onWillAcceptWithDetails: (details) => details.data.id != entry?.id,
-      onAcceptWithDetails: (details) => _handleDrop(context, ref, details.data, targetSlot),
+      onAcceptWithDetails: (details) =>
+          _handleDrop(context, ref, details.data, targetSlot),
       builder: (context, candidateData, rejectedData) {
         final highlight = candidateData.isNotEmpty;
         final content = entry == null
@@ -122,11 +134,16 @@ class _Cell extends ConsumerWidget {
                   data: entry,
                   feedback: Material(
                     color: Colors.transparent,
-                    child: SizedBox(width: 150, child: _EntryChip(entry: entry!, mode: mode)),
+                    child: SizedBox(
+                      width: 150,
+                      child: _EntryChip(entry: entry!, mode: mode),
+                    ),
                   ),
                   childWhenDragging: Opacity(opacity: 0.3, child: content),
                   child: GestureDetector(
-                    onTap: () => ref.read(selectedEntryIdProvider.notifier).state = entry!.id,
+                    onTap: () =>
+                        ref.read(selectedEntryIdProvider.notifier).state =
+                            entry!.id,
                     child: content,
                   ),
                 ),
@@ -142,14 +159,20 @@ class _Cell extends ConsumerWidget {
     TimeSlotInfo targetSlot,
   ) async {
     final repo = ref.read(timetableRepositoryProvider);
-    final validation = await repo.validateMove(dragged.id, dragged.roomId, targetSlot.id);
+    final validation = await repo.validateMove(
+      dragged.id,
+      dragged.roomId,
+      targetSlot.id,
+    );
     if (validation['ok'] == true) {
       await repo.move(dragged.id, dragged.roomId, targetSlot.id);
       ref.invalidate(activeTimetableProvider);
       return;
     }
     if (!context.mounted) return;
-    final conflicts = (validation['conflicts'] as List).cast<String>().join(' ');
+    final conflicts = (validation['conflicts'] as List).cast<String>().join(
+      ' ',
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AppColors.critical,
@@ -166,7 +189,9 @@ class _EntryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = mode == TimetableViewMode.byClass ? entry.teacherName : entry.classLabel;
+    final subtitle = mode == TimetableViewMode.byClass
+        ? entry.teacherName
+        : entry.classLabel;
     return Container(
       margin: const EdgeInsets.all(2),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -188,7 +213,10 @@ class _EntryChip extends StatelessWidget {
           ),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
