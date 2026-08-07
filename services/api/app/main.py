@@ -54,6 +54,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def no_store_middleware(request, call_next):
+    # No response here carries an explicit Cache-Control, which left GET
+    # endpoints (e.g. /students) eligible for the browser's own HTTP cache --
+    # Dio-on-web uses XMLHttpRequest, not fetch(), and Chrome was found
+    # serving a stale cached response for a WS-triggered refetch of the exact
+    # same URL immediately after a commit (live-verified: direct curl always
+    # saw the fresh count, but the same request from the running app didn't).
+    # This app's whole live-update model depends on every refetch actually
+    # hitting the server, so nothing here should ever be browser-cached.
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 app.include_router(health.router)
 app.include_router(auth.router)
 # attendance before people: both declare a /students/... path, and FastAPI
