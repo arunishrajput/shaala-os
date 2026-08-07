@@ -6,13 +6,17 @@ import '../data/models/auth_result.dart';
 import '../data/repositories.dart';
 
 class AuthState {
-  const AuthState({this.result, this.loading = false, this.error});
+  const AuthState({this.result, this.loadingRole, this.error});
 
   final AuthResult? result;
-  final bool loading;
+  // Which of the three demo-login buttons is in flight, if any -- lets the
+  // pressed button show its own spinner instead of all three just going
+  // inert with no feedback that the click registered.
+  final String? loadingRole;
   final String? error;
 
   bool get isLoggedIn => result != null;
+  bool get loading => loadingRole != null;
 }
 
 /// Manual Riverpod Notifier — no @riverpod codegen anywhere in this app
@@ -22,7 +26,7 @@ class AuthNotifier extends Notifier<AuthState> {
   AuthState build() => const AuthState();
 
   Future<void> demoLogin(String role) async {
-    state = AuthState(loading: true, result: state.result);
+    state = AuthState(loadingRole: role, result: state.result);
     try {
       final result = await ref.read(authRepositoryProvider).demoLogin(role);
       state = AuthState(result: result);
@@ -67,4 +71,11 @@ final wsClientProvider = Provider<WsClient>((ref) {
 
 final eventStreamProvider = StreamProvider<AppEvent>((ref) {
   return ref.watch(wsClientProvider).events;
+});
+
+// Separate from eventStreamProvider on purpose: connectivity can change
+// (drop, silently reconnect) without a single domain event ever arriving,
+// and the header's "Live"/"Connecting…" badge needs to reflect that.
+final wsConnectionProvider = StreamProvider<bool>((ref) {
+  return ref.watch(wsClientProvider).connectionStatus;
 });

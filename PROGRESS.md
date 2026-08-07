@@ -3,9 +3,57 @@
 Tracked by phase (PROMPT.md §9), not by calendar date. Updated at the end of every
 phase, per CLAUDE.md.
 
-## Current phase: 4 — The intelligence — **gate passed**
+## Current phase: 5 — Feature freeze & bug bash — **in progress**
 
 ## Done
+- **Phase 5** — feature freeze & bug bash (in progress, first pass done,
+  Flutter-only so far):
+  - Added a single `friendlyError(Object error)` helper (`data/repositories.dart`)
+    that routes every caught exception (`ApiException`, `DioException`, anything
+    else) through the existing message-formatting logic, and swept every screen
+    to use it instead of raw `'$e'`/`error.toString()` interpolation — fixed
+    ~15 spots across the Action Center, Documents (review panel, upload picker,
+    bulk upload, sample chips), Timetable (grid, explain panel, generate,
+    substitute panel), People, Class students, Staffing, Attendance's kiosk scan
+    handler, the header Reset button, and login (`AuthNotifier.demoLogin`).
+  - Closed 5 real dead-end bugs — actions that could fail with **no** user-visible
+    feedback: `KioskNotifier.handleScan` had no error handling at all before this
+    pass (a failed scan just silently did nothing); manual roll-call marking,
+    document reject, the upload file-picker, and the sample-doc chips were the
+    same. All five now surface a SnackBar or inline error with a real message.
+  - Fixed a genuine architecture bug in `substitute_dialog.dart`: if `assign()`
+    failed partway through a multi-period absence, the error branch replaced the
+    *entire* panel, hiding the remaining still-actionable periods — a dead end
+    for the Mrs. Rao story if one assignment ever failed. Error now renders as a
+    banner above the still-visible periods list, gated on `state.absenceId ==
+    null` to distinguish "never loaded" from "loaded, then one action failed."
+  - Added 4 missing empty states (People's Teachers/Classes tabs, class roster,
+    manual roll-call with no class selected) that previously rendered a blank
+    `ListView`/`SizedBox` with no explanation.
+  - Documents' review panel loading state upgraded from a bare spinner to
+    `SkeletonList`; its Commit/Reject buttons now disable each other mid-request
+    instead of allowing a double-submit race.
+  - Responsive pass: Timetable (grid + explain panel), Documents (list + review
+    panel), and Attendance's kiosk tab (camera + live feed) now use
+    `LayoutBuilder` to switch from side-by-side to stacked/single-panel below a
+    width threshold (900px for the panel screens, 760px for the kiosk row)
+    instead of overflowing at phone width, per PROMPT.md §7.2.
+  - Ran `dart format lib/` across the codebase (35 files reformatted; spot-
+    checked several untouched files to confirm only cosmetic line-wrap diffs).
+    `flutter analyze` clean after two lint fixes this surfaced (`friendlyError`
+    needed explicit braces on a single-line `if`; `action_center.dart`'s async
+    catch needed an explicit `context.mounted` guard).
+  - Committed `e0ce6e3` ("phase-5: bug bash — raw exceptions, dead ends, empty
+    states, mobile layout"), pushed, redeployed (Vercel frontend rebuilt with
+    prod dart-defines; Render backend unchanged this slice — everything above
+    is Flutter-only).
+  - **Not yet done, this phase is not gate-passed:** live browser verification
+    of any of this — browser click automation has been broken across three
+    attempts in two sessions now (confirmed environmental via a plain external
+    test page, not app-specific); relied on backend tests + `flutter analyze` +
+    `flutter build web` + direct curl checks instead. Also still open: a walk
+    of the screens not yet audited (Login's own error/loading UI, the WS
+    "Connecting…" badge under sustained disconnection), then a final gate call.
 - **Phase 1** — foundation, deploy plumbing, Flutter shell, People screens.
 - **Phase 2** — CP-SAT timetable solver, explain-any-cell, drag-and-drop
   validation, substitute repair algorithm. See phase log below.
@@ -183,14 +231,23 @@ phase, per CLAUDE.md.
   Phase 4 feature (Action Center, substitute assignment, notifications,
   attendance kiosk/manual/ID-cards) was verified live in the browser.
   Worth a five-minute visual pass next session.
+- The whole Phase 5 bug-bash pass (raw-exception fixes, dead-end fixes, empty
+  states, mobile-responsive `LayoutBuilder` changes) is verified only via
+  `flutter analyze` + `flutter build web` + backend tests — same browser
+  tooling outage as above, now spanning three attempts across two sessions.
+  Highest-value thing to check first next session: the substitute-dialog
+  error-banner fix and the mobile-width `LayoutBuilder` breakpoints, since
+  those are the two changes most likely to look different than intended
+  without eyes on an actual narrow viewport.
 
 ## Next 3 tasks (Phase 5 — feature freeze & bug bash)
-1. Live-verify the Staffing chart and the Reset demo data button (see known
-   gap above) now that a fresh session should have working browser tooling.
-2. Full walk of the judge's path: every empty state, every error state,
-   every loading skeleton, mobile responsiveness — PROMPT.md §9's Phase 5
-   gate ("no dead ends, no raw exception strings, nothing that only works if
-   you click in the right order").
+1. Live-verify the whole Phase 5 bug-bash pass plus the still-outstanding
+   Phase 4 items (Staffing chart, Reset demo data button) now that a fresh
+   session should have working browser tooling — see known gap above.
+2. Finish the judge's-path walk: Login screen's own error/loading UI, and the
+   WS "Connecting…" badge's behavior under sustained disconnection are the
+   two screens/states not yet audited. Then declare Phase 5 gate passed or
+   named-and-deferred, per CLAUDE.md's phase-discipline rule.
 3. Revisit the Phase 2 production solver RAM gap and the Phase 5/6-deferred
    §6.6 stretch items (Principal's Weekly Briefing, Ask Shaala) only if
    Phase 5 finishes with room to spare — PROMPT.md's own hard rule is that a
@@ -280,3 +337,29 @@ story, and the reset budget) passes, with real numbers, against the
 deployed URL. The one part that doesn't (an active timetable existing on
 that URL at all) was broken before Phase 4 started and is tracked as its
 own item, not folded into this phase's status.
+
+### Phase 5 — Feature freeze & bug bash — ⏳ in progress, not yet gate-passed
+Gate (PROMPT.md §9): no dead ends, no raw exception strings reaching the UI,
+no state that only works if the user clicks in exactly the right order,
+responsive down to phone width.
+
+First pass complete and shipped (`e0ce6e3`, pushed, redeployed): a systematic
+code-level sweep — not a feature list — found and fixed real instances of
+every category the gate names. See the Done entry above for the full list;
+in short, ~15 raw-exception leaks routed through a new `friendlyError()`
+helper, 5 genuine dead ends (kiosk scan had *no* error handling at all),
+1 architecture bug where an error could hide otherwise-still-actionable UI
+(`substitute_dialog.dart`), 4 missing empty states, and 3 screens made to
+degrade gracefully at phone width via `LayoutBuilder` instead of overflowing.
+
+This was done by direct code review and grep-based sweeps, not by clicking
+through the app — browser click automation has now failed identically across
+three separate attempts spanning two sessions (confirmed environmental, not
+app-related, by testing against a plain external page each time). Verified
+instead via `flutter analyze` (clean), `flutter build web` (succeeds),
+backend tests (38 passing, 1 skipped), and direct curl checks against both
+local and production. **Gate is not being declared passed yet** — the fixes
+are real and defensible on their own, but "no dead ends" is a claim that
+deserves eyes on a real narrow viewport before calling it done, and two
+screens (Login, the WS reconnection badge) haven't been walked yet at all.
+Carried forward as the top item in "Next 3 tasks" above.

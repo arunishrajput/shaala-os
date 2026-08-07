@@ -68,12 +68,19 @@ class _DemoLoginButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final loading = ref.watch(authProvider).loading;
+    final auth = ref.watch(authProvider);
+    final thisButtonLoading = auth.loadingRole == role;
     return ElevatedButton(
-      onPressed: loading
+      onPressed: auth.loading
           ? null
           : () => ref.read(authProvider.notifier).demoLogin(role),
-      child: Text(label),
+      child: thisButtonLoading
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(label),
     );
   }
 }

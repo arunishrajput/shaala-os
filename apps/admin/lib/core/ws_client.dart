@@ -30,14 +30,29 @@ class WsClient {
 
   WebSocketChannel? _channel;
   final _controller = StreamController<AppEvent>.broadcast();
+  final _statusController = StreamController<bool>.broadcast();
 
   Stream<AppEvent> get events => _controller.stream;
 
-  void _connect() {
+  // A dedicated status stream, not derived from `events`: reconnects here are
+  // silent (onDone/onError just retry), so a "has the event stream ever
+  // emitted anything" check would latch "Live" forever after the first
+  // message and never reflect a later drop.
+  Stream<bool> get connectionStatus => _statusController.stream;
+
+  Future<void> _connect() async {
     final channel = WebSocketChannel.connect(
       Uri.parse('${Env.wsBaseUrl}/ws/events'),
     );
     _channel = channel;
+    try {
+      await channel.ready;
+    } catch (_) {
+      _statusController.add(false);
+      _scheduleReconnect();
+      return;
+    }
+    _statusController.add(true);
     channel.stream.listen(
       (raw) {
         try {
@@ -47,8 +62,14 @@ class WsClient {
           // Malformed frame — ignore, don't crash the stream.
         }
       },
-      onDone: () => _scheduleReconnect(),
-      onError: (_) => _scheduleReconnect(),
+      onDone: () {
+        _statusController.add(false);
+        _scheduleReconnect();
+      },
+      onError: (_) {
+        _statusController.add(false);
+        _scheduleReconnect();
+      },
       cancelOnError: true,
     );
   }
@@ -60,5 +81,6 @@ class WsClient {
   void dispose() {
     _channel?.sink.close();
     _controller.close();
+    _statusController.close();
   }
 }

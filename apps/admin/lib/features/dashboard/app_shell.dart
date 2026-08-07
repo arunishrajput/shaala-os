@@ -234,8 +234,7 @@ class _WsBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final events = ref.watch(eventStreamProvider);
-    final connected = events.hasValue;
+    final connected = ref.watch(wsConnectionProvider).valueOrNull ?? false;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
