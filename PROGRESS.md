@@ -47,13 +47,37 @@ phase, per CLAUDE.md.
     states, mobile layout"), pushed, redeployed (Vercel frontend rebuilt with
     prod dart-defines; Render backend unchanged this slice — everything above
     is Flutter-only).
-  - **Not yet done, this phase is not gate-passed:** live browser verification
-    of any of this — browser click automation has been broken across three
-    attempts in two sessions now (confirmed environmental via a plain external
-    test page, not app-specific); relied on backend tests + `flutter analyze` +
-    `flutter build web` + direct curl checks instead. Also still open: a walk
-    of the screens not yet audited (Login's own error/loading UI, the WS
-    "Connecting…" badge under sustained disconnection), then a final gate call.
+  - Second slice (`7bce164`), closing the two screens named as unaudited
+    above: found a real bug in `_WsBadge` (header's Live/Connecting… dot) —
+    it derived connectivity from whether the domain-event stream had ever
+    emitted anything, so once any WebSocket message arrived it latched
+    "Live" forever, even through a later silent drop-and-reconnect (`WsClient`
+    swallows `onDone`/`onError` internally and just retries after 3s, never
+    surfacing that to listeners). This is a real correctness problem, not
+    cosmetic — a judge watching that badge during a genuine Render free-tier
+    idle disconnect would see a lie. Fixed by giving `WsClient` its own
+    `connectionStatus` stream, driven by `WebSocketChannel.ready` (verified
+    against the installed `web_socket_channel` 3.0.3 source, not guessed —
+    it's implemented in both the web and IO adapters) plus the existing
+    `onDone`/`onError` hooks, exposed as a new `wsConnectionProvider` the
+    badge now watches instead of `eventStreamProvider`. Also gave the Login
+    screen's three demo-login buttons a real spinner on the one actually
+    pressed — previously all three just went inert on click with zero visual
+    confirmation the tap registered.
+  - Redeployed after this slice: pushed `7bce164`, rebuilt
+    `flutter build web` with the production dart-defines
+    (`API_BASE_URL=https://shaala-os-api.onrender.com`,
+    `WS_BASE_URL=wss://shaala-os-api.onrender.com`), `vercel --prod` from
+    `build/web`, aliased to `shaala-os.vercel.app`. Both prod URLs curl 200
+    immediately after.
+  - **Not yet done, this phase is not gate-passed:** live browser
+    verification of any Phase 5 fixes across both slices — browser click
+    automation has been broken across three attempts in two sessions now
+    (confirmed environmental via a plain external test page, not
+    app-specific); relied on backend tests + `flutter analyze` +
+    `flutter build web` + direct curl checks instead. Every screen named in
+    PROMPT.md §9's Phase 5 gate has now been code-reviewed and fixed where
+    something was actually wrong; what remains is eyes on it.
 - **Phase 1** — foundation, deploy plumbing, Flutter shell, People screens.
 - **Phase 2** — CP-SAT timetable solver, explain-any-cell, drag-and-drop
   validation, substitute repair algorithm. See phase log below.
@@ -232,22 +256,25 @@ phase, per CLAUDE.md.
   attendance kiosk/manual/ID-cards) was verified live in the browser.
   Worth a five-minute visual pass next session.
 - The whole Phase 5 bug-bash pass (raw-exception fixes, dead-end fixes, empty
-  states, mobile-responsive `LayoutBuilder` changes) is verified only via
-  `flutter analyze` + `flutter build web` + backend tests — same browser
-  tooling outage as above, now spanning three attempts across two sessions.
-  Highest-value thing to check first next session: the substitute-dialog
-  error-banner fix and the mobile-width `LayoutBuilder` breakpoints, since
-  those are the two changes most likely to look different than intended
-  without eyes on an actual narrow viewport.
+  states, mobile-responsive `LayoutBuilder` changes, the WS badge fix, the
+  login spinner) is verified only via `flutter analyze` + `flutter build web`
+  + backend tests — same browser tooling outage as above, now spanning three
+  attempts across two sessions. Highest-value things to check first next
+  session, in order: the WS badge actually flips to "Connecting…" on a real
+  drop (hardest to fake without a live socket), the substitute-dialog
+  error-banner fix, and the mobile-width `LayoutBuilder` breakpoints at an
+  actual narrow viewport.
 
 ## Next 3 tasks (Phase 5 — feature freeze & bug bash)
-1. Live-verify the whole Phase 5 bug-bash pass plus the still-outstanding
-   Phase 4 items (Staffing chart, Reset demo data button) now that a fresh
-   session should have working browser tooling — see known gap above.
-2. Finish the judge's-path walk: Login screen's own error/loading UI, and the
-   WS "Connecting…" badge's behavior under sustained disconnection are the
-   two screens/states not yet audited. Then declare Phase 5 gate passed or
-   named-and-deferred, per CLAUDE.md's phase-discipline rule.
+1. Live-verify the whole Phase 5 bug-bash pass (both slices) plus the
+   still-outstanding Phase 4 items (Staffing chart, Reset demo data button)
+   now that a fresh session should have working browser tooling — see known
+   gap above. Every screen in PROMPT.md §9's Phase 5 gate has been
+   code-reviewed and fixed where warranted; this is the only remaining gap
+   before declaring the gate passed.
+2. Once live-verified, update this file's header to gate-passed and add the
+   Phase 5 phase-log entry's final verdict (it's currently written as
+   in-progress).
 3. Revisit the Phase 2 production solver RAM gap and the Phase 5/6-deferred
    §6.6 stretch items (Principal's Weekly Briefing, Ask Shaala) only if
    Phase 5 finishes with room to spare — PROMPT.md's own hard rule is that a
@@ -358,8 +385,25 @@ three separate attempts spanning two sessions (confirmed environmental, not
 app-related, by testing against a plain external page each time). Verified
 instead via `flutter analyze` (clean), `flutter build web` (succeeds),
 backend tests (38 passing, 1 skipped), and direct curl checks against both
-local and production. **Gate is not being declared passed yet** — the fixes
-are real and defensible on their own, but "no dead ends" is a claim that
-deserves eyes on a real narrow viewport before calling it done, and two
-screens (Login, the WS reconnection badge) haven't been walked yet at all.
-Carried forward as the top item in "Next 3 tasks" above.
+local and production.
+
+Second slice (`7bce164`) closed the two screens the first slice hadn't
+reached yet: the header's Live/Connecting… badge was a real correctness bug,
+not cosmetic — it latched "Live" permanently after the first WebSocket
+message and would keep claiming a healthy connection through a genuine
+silent drop-and-reconnect, since `WsClient` handled that internally and
+never told any listener. Fixed with a dedicated `connectionStatus` stream
+driven by `WebSocketChannel.ready` (checked against the installed
+`web_socket_channel` 3.0.3 source before using it, per CLAUDE.md rule 4)
+plus the existing `onDone`/`onError` hooks. The Login screen's three demo
+buttons also went from "disables on click, no other feedback" to a real
+per-button spinner. Rebuilt with production dart-defines, pushed, and
+`vercel --prod`-deployed; both prod URLs curl 200 afterward.
+
+**Gate is not being declared passed yet.** Every screen and state PROMPT.md
+§9's Phase 5 gate cares about (dead ends, raw exceptions, empty/loading
+states, mobile responsiveness, connection-status honesty) has now been
+code-reviewed and fixed where something was actually wrong, across both
+slices. What's left is exclusively live browser verification, blocked on
+the tooling outage — not unaudited surface area. Carried forward as the top
+item in "Next 3 tasks" above.
