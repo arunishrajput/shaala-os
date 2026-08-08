@@ -127,15 +127,36 @@ than claimed as equivalent to live verification.
     switched to the already-running `make demo` stack instead, which does
     allow it) — clicked through Dashboard, Timetable, People, and Staffing
     and confirmed all four render correctly with no regressions.
-  - `docs/screenshots/*.jpg` and `docs/hero.gif` are now one commit behind
-    this last change — they don't yet show the card borders, serif app-bar
-    wordmark, or Action Center accent bar. Not re-exported this pass (no
-    tool available in this session writes a browser screenshot straight to
-    a file path — the prior capture session's exact mechanism isn't
-    reproducible here without risking a rabbit hole on tooling rather than
-    product work). The content and data in the existing images are still
-    accurate; only this specific styling delta is missing. Worth a quick
-    recapture as a follow-up, not a blocker.
+  - **Screenshot/GIF recapture, found a real mechanism this time.** The
+    "no tool writes a screenshot to disk" limitation noted above turned
+    out to be solvable: `gif_creator`'s `export(download: true)` triggers
+    an actual Chrome download (confirmed by finding the file in
+    `~/Downloads` afterward — occasionally landed a few seconds after the
+    tool call reported success, so the first two capture attempts had to
+    be retried once each after polling for the file), and a single-frame
+    recording (`start_recording` → one `wait` action, which counts as a
+    captured frame; a bare `screenshot` call does not → `stop_recording`
+    → `export`) gives a clean still. `sips -s format jpeg` converts each
+    downloaded GIF to the `.jpg` convention the docs already use.
+    Recaptured all 5 non-login screenshots this way (`00-login.jpg` was
+    untouched by any of this session's changes, so left as-is) — every
+    one now shows the card borders, serif app-bar wordmark, and Action
+    Center accent bar, and `01-dashboard.jpg` additionally shows the new
+    Weekly Briefing card with a real generated narrative.
+  - **`docs/hero.gif` recaptured for real**, not just re-styled: cleared
+    a fresh `make demo` container's timetable state, generated a new one
+    (372 assignments, 8.03s), then recorded the full Mrs. Rao flow
+    live — People → mark Aadhya Menon absent → the dialog surfaced 3
+    uncovered periods this time (8-A/10-A/11-C Wed, not the 2 from the
+    original capture — a different generated timetable, not a bug) → one
+    tap assigned each → "Every period is covered." → Dashboard shows all
+    3 drafted Outbox notifications. 18 frames, 1456×830, verified with
+    PIL (`Image.open(...).seek()` until `EOFError`) rather than assumed
+    from the export tool's own report. One transient hiccup along the
+    way: the browser extension disconnected right as the Attendance
+    screen's camera-permission prompt fired (a recurrence of a pattern
+    already seen once earlier this session) — resolved by closing the
+    wedged tab and opening a fresh one, not by retrying in place.
   - **Principal's Weekly Briefing + Ask Shaala** (PROMPT.md §6.6, "AI layer
     beyond OCR") — built on explicit user request, reopening the item
     README/PROGRESS had recorded as a deliberate Phase 5 stretch deferral.
@@ -534,13 +555,12 @@ than claimed as equivalent to live verification.
   parallel per explicit user instruction rather than waiting on it.
 
 ## Next 3 tasks (Phase 6 — artifacts & ship)
-1. Recapture `docs/screenshots/*.jpg` and `docs/hero.gif` to reflect both
-   this session's visual pass (card borders, serif app-bar wordmark,
-   Action Center accent) and the new Weekly Briefing / Ask Shaala UI —
-   currently undocumented visually, though verified live in-session.
-2. If a working browser-resize path becomes available, live-click the
+1. If a working browser-resize path becomes available, live-click the
    900px/760px breakpoints to upgrade them from statically-verified to
    live-verified — the one item this session's tooling couldn't close.
+2. Consider a dedicated screenshot or GIF moment for Ask Shaala itself
+   (the ⌘K dialog + an answer) — the Dashboard shot now covers Weekly
+   Briefing, but Ask Shaala currently only appears in the docs as prose.
 3. Things only the user can do: record the actual demo video (voice +
    burned-in captions), test the live URL from a real phone on mobile
    data, fill out the submission platform's form (platform itself unknown
