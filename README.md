@@ -57,6 +57,26 @@ Mapped to the problem statement's own headings so nothing is left to interpretat
 | Proactive Dashboard | Action Center: a prioritized inbox of one-tap decisions, not a wall of charts | §6.3, `services/api/app/services/signals/`, `apps/admin/lib/features/dashboard/` |
 | Smart Staffing | Transparent EWMA + seasonal-baseline 7-day forecast with a real backtest, not a black box | §6.5, `services/api/app/services/staffing/`, `apps/admin/lib/features/staffing/` |
 | Auto-Attendance | QR ID cards + kiosk scanning, optional fixture-backed group-photo mode, manual roll-call fallback | §6.4, `apps/admin/lib/features/attendance/` |
+| AI layer beyond OCR | Principal's Weekly Briefing (aggregates → narrative) and Ask Shaala (⌘K natural-language Q&A) | §6.6, `services/api/app/services/ai/`, `apps/admin/lib/features/dashboard/` |
+
+---
+
+## Ask Shaala — the model never writes SQL
+
+"Ask Shaala" (⌘K, or the sparkle icon in the header) answers questions like
+*"Who's free Tuesday period 3?"* in plain language. It does **not** let an LLM
+write or run SQL against the database. The model's only job is to pick one
+function name and a small set of typed parameters from a fixed whitelist of
+seven hand-written, already-unit-tested query functions
+(`services/api/app/services/ai/ask.py`); every database query in the whole
+feature lives in one of those seven functions, not in a prompt. An intent
+outside the whitelist gets a plain "I can't help with that" answer, never a
+free-form query. With no `GEMINI_API_KEY` configured — the state of this repo
+without one added — intent parsing falls back to a small deterministic
+keyword matcher instead of failing closed, the same demo-safety contract the
+vision pipeline already uses. The Principal's Weekly Briefing follows the
+identical rule in miniature: the model only ever sees a handful of computed
+aggregates (counts, rates), never a raw database row.
 
 ---
 
@@ -83,7 +103,9 @@ flowchart LR
         API[REST routers] --> DB[(Postgres)]
         API --> Solver[OR-Tools CP-SAT]
         API --> Vision[Gemini / fixture vision]
+        API --> AI[Briefing + Ask Shaala]
         API --> Signals[Signal engine]
+        AI -- whitelisted functions only --> DB
         Signals --> DB
         Bus[/ws/events connection manager/] --> WS
         API -- broadcast on mutation --> Bus
@@ -153,7 +175,7 @@ weakness. Updated at the end of every phase.
 | `POST /demo/reset` + header button | ✅ Phase 4 done, verified live in Phase 5/6 — confirm → progress → full reload → back to login, timed at 5.8–6.7s against production (budget is 15s) |
 | Feature freeze & bug bash (Phase 5) | ✅ done — swept every screen for raw exception strings (routed through one `friendlyError()` helper), dead ends (an error state that hid otherwise-actionable UI), missing empty states, and mobile-responsive breakpoints. Found and fixed two real production bugs this pass surfaced: a raw Dio exception leaking to the UI on a Render cold start, and a missing `Cache-Control: no-store` header that let the browser serve a stale cached response for the dashboard's live student counter after a commit — both root-caused with direct evidence (not guessed) and live-reverified. Two screens (mobile-width breakpoints) are code-reviewed and statically verified but not yet live-clicked due to browser tooling instability late in the session |
 | Group-photo attendance | ⏳ Optional stretch — didn't build it this session (Phase 4 had enough scope); returns a clear 501, not a silent failure |
-| Principal's Weekly Briefing / Ask Shaala (⌘K) | ⏳ Phase 5 stretch only — not built; Phase 5 went to feature freeze and bug fixing instead per PROMPT.md's own hard rule (a flawless five-feature product beats a shaky eight) |
+| Principal's Weekly Briefing / Ask Shaala (⌘K) | ✅ Phase 6 — built after the original Phase 5 stretch deferral, on explicit user request. `POST /briefing/generate` and `POST /ask` both verified live against the local stack; 20 backend tests cover every whitelisted intent plus the no-key fallback paths, since no `GEMINI_API_KEY` is configured in this environment |
 
 ---
 

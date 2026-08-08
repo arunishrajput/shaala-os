@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../../providers/briefing_providers.dart';
 import '../../providers/people_providers.dart';
 import 'action_center.dart';
 import 'outbox_panel.dart';
@@ -51,8 +52,80 @@ class DashboardScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
+          const _BriefingSection(),
+          const SizedBox(height: 24),
           const OutboxPanel(),
         ],
+      ),
+    );
+  }
+}
+
+/// PROMPT.md §6.6: one button turns computed aggregates into a short
+/// narrative. `source` is surfaced rather than hidden -- "written by Gemini"
+/// vs "generated locally" is the same honesty the Staffing forecast already
+/// practices with its own "forecast, not prophecy" label.
+class _BriefingSection extends ConsumerWidget {
+  const _BriefingSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(briefingProvider);
+    final briefing = state.briefing;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  "Principal's weekly briefing",
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: state.loading
+                      ? null
+                      : () => ref.read(briefingProvider.notifier).generate(),
+                  icon: state.loading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome, size: 18),
+                  label: Text(briefing == null ? 'Generate' : 'Regenerate'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (state.error != null)
+              Text(
+                state.error!,
+                style: const TextStyle(color: AppColors.critical),
+              )
+            else if (briefing != null) ...[
+              Text(briefing.narrative),
+              const SizedBox(height: 8),
+              Text(
+                briefing.source == 'gemini'
+                    ? "Written by Gemini from this week's live numbers."
+                    : "Generated locally from this week's live numbers.",
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ] else
+              const Text(
+                "One tap turns this week's numbers into a short briefing.",
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -136,6 +136,68 @@ than claimed as equivalent to live verification.
     product work). The content and data in the existing images are still
     accurate; only this specific styling delta is missing. Worth a quick
     recapture as a follow-up, not a blocker.
+  - **Principal's Weekly Briefing + Ask Shaala** (PROMPT.md §6.6, "AI layer
+    beyond OCR") — built on explicit user request, reopening the item
+    README/PROGRESS had recorded as a deliberate Phase 5 stretch deferral.
+    New `services/api/app/services/ai/` package:
+    - `gemini_text.py` — a thin shared REST `generateContent` helper,
+      structurally identical to `services/vision/gemini.py`'s pattern
+      (same endpoint, same `x-goog-api-key` header) but for text prompts,
+      not images.
+    - `briefing.py` — `compute_stats()` touches the database exactly once
+      and returns only small counts/rates (open actions by severity,
+      7-day attendance rate, at-risk student count, docs pending, the
+      single tightest staffing day ahead) — never a raw row, so that's
+      the entire universe of facts the narrative step can cite.
+      `generate_briefing()` feeds that dict to Gemini asking for a 3-5
+      sentence narrative citing real numbers; on any Gemini failure
+      (starting with simply no `GEMINI_API_KEY`, the actual state of this
+      repo) it falls back to a deterministic template built from the same
+      stats dict — the same demo-safety contract the vision provider
+      already uses, so the button never dead-ends in an error screen.
+    - `ask.py` — the "model never writes SQL" claim as actual code shape:
+      a `_WHITELIST` of 7 hand-written functions (`who_is_free`,
+      `attendance_rate`, plus 5 that directly reuse the Action Center's
+      already-tested `detect_*` signal-rule functions from
+      `services/signals/rules.py`, so "who's free Tuesday period 3" and
+      the Action Center's own cards are backed by identical logic).
+      Gemini only ever returns `{"intent": <name>, "params": {...}}`;
+      an intent outside the whitelist gets a fixed "I can't help with
+      that" answer, never a free-form query. No Gemini key -> a
+      deterministic keyword matcher (regex + a real DB lookup of distinct
+      `Teacher.dept` values, not a hardcoded department list) picks the
+      intent instead.
+    - Routers `POST /briefing/generate` and `POST /ask`, registered in
+      `main.py`. 20 new backend tests
+      (`tests/test_briefing.py`, `tests/test_ask.py`) cover
+      `compute_stats`'s aggregates-only shape, the template-fallback
+      narrative citing real numbers, and every one of the 7 whitelisted
+      intents dispatching correctly through the fallback parser (the
+      path this environment's missing API key actually exercises) —
+      58 backend tests pass total, up from 38.
+    - Frontend: `Briefing`/`AskAnswer` Freezed models,
+      `BriefingRepository`/`AskRepository`, and two `Notifier`-based
+      providers mirroring the existing `GenerateNotifier` one-shot-action
+      shape (loading/result/error fields, no `AsyncNotifier` needed since
+      there's nothing to auto-refetch). Dashboard gets a "Principal's
+      weekly briefing" card between the stat cards and the Outbox, with
+      an honest "written by Gemini" vs "generated locally" caption on
+      the result. Ask Shaala is a dialog reachable two ways: the
+      `⌘K`/`Ctrl+K` global shortcut PROMPT.md names explicitly (wired via
+      `CallbackShortcuts` + `Focus(autofocus: true)` in `AppShell`), and a
+      sparkle icon in the app bar for judges on a phone with no keyboard.
+    - Live-verified against the local `make demo` stack after finding and
+      fixing one real bug: the long-running `api` container doesn't
+      auto-reload (no `--reload` flag, per `docker-compose.yml`), so the
+      new routers 404'd until `docker compose restart api` picked up the
+      code the bind-mounted volume already had on disk — an environment
+      quirk, not an app bug, but a real one that a naive "the code is
+      right, ship it" would have missed. After the restart: "Who's free
+      Tuesday period 3?" correctly listed free teachers, "Which students
+      are at risk?" returned the exact same wording as the Action Center
+      card, the Weekly Briefing generated a real narrative citing the
+      live 91.8% attendance figure, and `⌘K` reopened the dialog with
+      state preserved.
   - **Not yet done:** the actual demo video (needs the user's voice
     recording and burned-in captions — outside what this session can
     produce), a real phone-on-mobile-data check of the live URL, and the
@@ -472,15 +534,13 @@ than claimed as equivalent to live verification.
   parallel per explicit user instruction rather than waiting on it.
 
 ## Next 3 tasks (Phase 6 — artifacts & ship)
-1. If a working browser-resize path becomes available, live-click the
+1. Recapture `docs/screenshots/*.jpg` and `docs/hero.gif` to reflect both
+   this session's visual pass (card borders, serif app-bar wordmark,
+   Action Center accent) and the new Weekly Briefing / Ask Shaala UI —
+   currently undocumented visually, though verified live in-session.
+2. If a working browser-resize path becomes available, live-click the
    900px/760px breakpoints to upgrade them from statically-verified to
    live-verified — the one item this session's tooling couldn't close.
-2. Sweep the rest of the app (Dashboard, Timetable, Documents, Attendance,
-   People, Staffing) for the same "make it beautiful" pass the login
-   screen and theme got — the redesign so far is deliberately scoped to
-   the theme-level Fraunces change plus login only, to avoid destabilizing
-   Phase 5's just-verified widget trees; a wider pass is a real option if
-   there's session time left.
 3. Things only the user can do: record the actual demo video (voice +
    burned-in captions), test the live URL from a real phone on mobile
    data, fill out the submission platform's form (platform itself unknown

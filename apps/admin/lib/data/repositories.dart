@@ -3,8 +3,10 @@ import 'package:file_picker/file_picker.dart';
 
 import '../core/api_client.dart';
 import 'models/action_item.dart';
+import 'models/ask_answer.dart';
 import 'models/attendance_record.dart';
 import 'models/auth_result.dart';
+import 'models/briefing.dart';
 import 'models/class_section.dart';
 import 'models/document.dart';
 import 'models/notification.dart';
@@ -285,6 +287,26 @@ class StaffingRepository {
       queryParameters: {'days': days},
     );
     return StaffingBacktest.fromJson(resp.data as Map<String, dynamic>);
+  }
+}
+
+class BriefingRepository {
+  BriefingRepository(this._client);
+  final ApiClient _client;
+
+  Future<Briefing> generate() async {
+    final resp = await _client.dio.post('/briefing/generate');
+    return Briefing.fromJson(resp.data as Map<String, dynamic>);
+  }
+}
+
+class AskRepository {
+  AskRepository(this._client);
+  final ApiClient _client;
+
+  Future<AskAnswer> ask(String query) async {
+    final resp = await _client.dio.post('/ask', data: {'query': query});
+    return AskAnswer.fromJson(resp.data as Map<String, dynamic>);
   }
 }
 

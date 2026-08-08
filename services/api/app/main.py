@@ -8,8 +8,10 @@ from app.config import settings
 from app.db.session import SessionLocal
 from app.routers import (
     actions,
+    ask,
     attendance,
     auth,
+    briefing,
     demo,
     documents,
     health,
@@ -85,4 +87,6 @@ app.include_router(actions.router)
 app.include_router(demo.router)
 app.include_router(notifications.router)
 app.include_router(staffing.router)
+app.include_router(briefing.router)
+app.include_router(ask.router)
 app.include_router(ws_router)
