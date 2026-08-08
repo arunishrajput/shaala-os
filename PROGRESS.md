@@ -109,6 +109,33 @@ than claimed as equivalent to live verification.
     hero GIF against the redesigned theme for visual consistency
     (`b013bd2`) — the old assets were taken before Fraunces existed and no
     longer matched.
+  - Extended the same pass to the rest of the app, additively only —
+    nothing here touches layout, providers, or any Phase-5-verified logic:
+    `CardThemeData` gets a subtle 1px border (`slateLight` at 40% alpha)
+    so every `Card()` in the app reads with real depth against the
+    near-identical-toned background instead of floating flat; the app
+    shell's "Shaala OS" wordmark now renders in the same Fraunces used
+    everywhere else, tying the brand mark together across every screen
+    instead of just login; the Action Center's severity indicator changed
+    from a small dot to a full-height colored left edge on each card — a
+    real triage signal at a glance, not decoration, since the product's
+    own thesis is "a prioritized inbox, not a wall of charts." Committed
+    as `199f8c6`. Verified live against the local stack (not production —
+    a local build pointed at the deployed API hit a genuine CORS 400,
+    "Disallowed CORS origin," since Render's CORS allowlist is a separate
+    env var from this repo's `.env` and doesn't include `localhost:8080`;
+    switched to the already-running `make demo` stack instead, which does
+    allow it) — clicked through Dashboard, Timetable, People, and Staffing
+    and confirmed all four render correctly with no regressions.
+  - `docs/screenshots/*.jpg` and `docs/hero.gif` are now one commit behind
+    this last change — they don't yet show the card borders, serif app-bar
+    wordmark, or Action Center accent bar. Not re-exported this pass (no
+    tool available in this session writes a browser screenshot straight to
+    a file path — the prior capture session's exact mechanism isn't
+    reproducible here without risking a rabbit hole on tooling rather than
+    product work). The content and data in the existing images are still
+    accurate; only this specific styling delta is missing. Worth a quick
+    recapture as a follow-up, not a blocker.
   - **Not yet done:** the actual demo video (needs the user's voice
     recording and burned-in captions — outside what this session can
     produce), a real phone-on-mobile-data check of the live URL, and the
