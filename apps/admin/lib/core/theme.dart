@@ -17,9 +17,26 @@ class AppColors {
 
 ThemeData buildAppTheme() {
   final base = ThemeData.dark(useMaterial3: true);
-  final textTheme = GoogleFonts.plusJakartaSansTextTheme(base.textTheme).apply(
+  final bodyTheme = GoogleFonts.plusJakartaSansTextTheme(base.textTheme).apply(
     bodyColor: AppColors.textPrimary,
     displayColor: AppColors.textPrimary,
+  );
+
+  // Fraunces carries the product's own thesis -- paper records becoming
+  // data -- into every screen title and headline number: a serif with the
+  // weight of an official register, set only where it can breathe (titles,
+  // big numbers), never in dense UI chrome or data tables where Plus
+  // Jakarta Sans's neutrality keeps things legible.
+  TextStyle display(TextStyle? s) =>
+      GoogleFonts.fraunces(textStyle: s, fontWeight: FontWeight.w600);
+
+  final textTheme = bodyTheme.copyWith(
+    displayLarge: display(bodyTheme.displayLarge),
+    displayMedium: display(bodyTheme.displayMedium),
+    displaySmall: display(bodyTheme.displaySmall),
+    headlineLarge: display(bodyTheme.headlineLarge),
+    headlineMedium: display(bodyTheme.headlineMedium),
+    headlineSmall: display(bodyTheme.headlineSmall),
   );
 
   return base.copyWith(
