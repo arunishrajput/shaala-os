@@ -64,9 +64,9 @@ Mapped to the problem statement's own headings so nothing is left to interpretat
 
 | | |
 |---|---|
-| ![Dashboard](docs/screenshots/01-dashboard.jpg) **Dashboard** — the Action Center: a prioritized inbox of one-tap decisions, not a wall of charts. | ![Timetable](docs/screenshots/02-timetable.jpg) **Timetable** — CP-SAT solver output with explain-any-cell: why this assignment, ranked alternatives, and the cost of forbidding it entirely. |
-| ![Documents](docs/screenshots/03-documents-review.jpg) **Document review** — bbox overlay drawn from the field's real extracted coordinates, low-confidence fields sorted to the top. | ![Attendance](docs/screenshots/04-attendance.jpg) **Attendance** — manual roll call with live state per student; the kiosk tab does the same over a QR scan. |
-| ![Staffing](docs/screenshots/05-staffing.jpg) **Staffing forecast** — EWMA + seasonal baseline, with a real backtest against a naive baseline, not a black-box number. | |
+| ![Login](docs/screenshots/00-login.jpg) **Login** — a ruled-paper texture and a serif wordmark, a deliberate nod to the paper this product exists to digitize. | ![Dashboard](docs/screenshots/01-dashboard.jpg) **Dashboard** — the Action Center: a prioritized inbox of one-tap decisions, not a wall of charts. |
+| ![Timetable](docs/screenshots/02-timetable.jpg) **Timetable** — CP-SAT solver output with explain-any-cell: why this assignment, ranked alternatives, and the cost of forbidding it entirely. | ![Documents](docs/screenshots/03-documents-review.jpg) **Document review** — bbox overlay drawn from the field's real extracted coordinates, low-confidence fields sorted to the top. |
+| ![Attendance](docs/screenshots/04-attendance.jpg) **Attendance** — manual roll call with live state per student; the kiosk tab does the same over a QR scan. | ![Staffing](docs/screenshots/05-staffing.jpg) **Staffing forecast** — EWMA + seasonal baseline, with a real backtest against a naive baseline, not a black-box number. |
 
 ---
 
