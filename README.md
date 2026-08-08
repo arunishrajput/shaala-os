@@ -12,8 +12,11 @@ Built for PaperBuddy EduHack ("Hack the Web"), track: Future-Ready Ops.
 
 ## Hero GIF
 
-_TODO (Phase 6): a GIF of the Mrs. Rao flow — teacher absent → dashboard card
-appears → one tap → grid rewrites → parents notified. Under 8 MB._
+![Mark a teacher absent, the substitute dialog surfaces every uncovered period with ranked candidates, one tap per period, and the Outbox drafts the notification — no manual lookup, no phone calls.](docs/hero.gif)
+
+Mark a teacher absent → every uncovered period surfaces with ranked substitute
+candidates → one tap each → the Outbox drafts the notification. No manual
+lookup, no phone calls down a corridor.
 
 ---
 
@@ -59,13 +62,40 @@ Mapped to the problem statement's own headings so nothing is left to interpretat
 
 ## Screenshots
 
-_TODO (Phase 5/6): five well-cropped screenshots._
+| | |
+|---|---|
+| ![Dashboard](docs/screenshots/01-dashboard.jpg) **Dashboard** — the Action Center: a prioritized inbox of one-tap decisions, not a wall of charts. | ![Timetable](docs/screenshots/02-timetable.jpg) **Timetable** — CP-SAT solver output with explain-any-cell: why this assignment, ranked alternatives, and the cost of forbidding it entirely. |
+| ![Documents](docs/screenshots/03-documents-review.jpg) **Document review** — bbox overlay drawn from the field's real extracted coordinates, low-confidence fields sorted to the top. | ![Attendance](docs/screenshots/04-attendance.jpg) **Attendance** — manual roll call with live state per student; the kiosk tab does the same over a QR scan. |
+| ![Staffing](docs/screenshots/05-staffing.jpg) **Staffing forecast** — EWMA + seasonal baseline, with a real backtest against a naive baseline, not a black-box number. | |
 
 ---
 
 ## Architecture
 
-_TODO (Phase 6): `docs/architecture.png`._
+```mermaid
+flowchart LR
+    subgraph Client["Flutter Web (Riverpod, manual providers)"]
+        UI[Screens] --> Providers[Domain providers]
+        Providers -- watch --> WS[eventStreamProvider]
+    end
+
+    subgraph Server["FastAPI"]
+        API[REST routers] --> DB[(Postgres)]
+        API --> Solver[OR-Tools CP-SAT]
+        API --> Vision[Gemini / fixture vision]
+        API --> Signals[Signal engine]
+        Signals --> DB
+        Bus[/ws/events connection manager/] --> WS
+        API -- broadcast on mutation --> Bus
+        Scheduler[APScheduler 30s tick] --> Signals
+    end
+
+    UI -- HTTP --> API
+    Client -- WSS --> Bus
+```
+
+One Postgres schema, one WebSocket bus, one CP-SAT solver — no separate
+notification service, no polling, no second database for "real-time" state.
 
 **Why CP-SAT, not a greedy scheduler.** Timetabling is a genuine constraint
 satisfaction problem — one teacher can't be in two rooms, a lab subject needs a lab
@@ -119,10 +149,11 @@ weakness. Updated at the end of every phase.
 | Proactive Action Center — 6 real signal rules, one-tap resolve/dismiss, live bell badge | ✅ Phase 4 done, verified live |
 | Notification Outbox — real drafted messages, never sent | ✅ Phase 4 done, verified live |
 | QR attendance kiosk + ID cards + manual roll call | ✅ Phase 4 done, verified live (including the cross-device moment: a scan from a second client updated a still-open browser tab's counter with no local action) |
-| Staffing forecast + backtest chart | ✅ Phase 4 done — backend fully tested and curl-verified; the Flutter chart itself was verified statically only (clean analyze + build) after browser click automation stopped responding mid-session, pending a live visual pass |
-| `POST /demo/reset` + header button | ✅ Phase 4 done — backend tested and timed (3.87s, budget is 15s); the button itself verified statically only, same tooling gap as above |
+| Staffing forecast + backtest chart | ✅ Phase 4 done, verified live in Phase 6 (see screenshot above — real `fl_chart` backtest, predicted-vs-actual, honest skill score against a flat-average baseline) |
+| `POST /demo/reset` + header button | ✅ Phase 4 done, verified live in Phase 5/6 — confirm → progress → full reload → back to login, timed at 5.8–6.7s against production (budget is 15s) |
+| Feature freeze & bug bash (Phase 5) | ✅ done — swept every screen for raw exception strings (routed through one `friendlyError()` helper), dead ends (an error state that hid otherwise-actionable UI), missing empty states, and mobile-responsive breakpoints. Found and fixed two real production bugs this pass surfaced: a raw Dio exception leaking to the UI on a Render cold start, and a missing `Cache-Control: no-store` header that let the browser serve a stale cached response for the dashboard's live student counter after a commit — both root-caused with direct evidence (not guessed) and live-reverified. Two screens (mobile-width breakpoints) are code-reviewed and statically verified but not yet live-clicked due to browser tooling instability late in the session |
 | Group-photo attendance | ⏳ Optional stretch — didn't build it this session (Phase 4 had enough scope); returns a clear 501, not a silent failure |
-| Principal's Weekly Briefing / Ask Shaala (⌘K) | ⏳ Phase 5 stretch only |
+| Principal's Weekly Briefing / Ask Shaala (⌘K) | ⏳ Phase 5 stretch only — not built; Phase 5 went to feature freeze and bug fixing instead per PROMPT.md's own hard rule (a flawless five-feature product beats a shaky eight) |
 
 ---
 

@@ -3,7 +3,32 @@
 Tracked by phase (PROMPT.md §9), not by calendar date. Updated at the end of every
 phase, per CLAUDE.md.
 
-## Current phase: 5 — Feature freeze & bug bash — **in progress**
+## Current phase: 6 — Artifacts & ship — **in progress**
+
+**Phase 5 → 6 transition note:** moved on by explicit user decision
+("go ahead and move to phase 6") with two Phase 5 items still statically-only
+verified, not gate-closed: the Staffing screen's backtest chart and the
+900px/760px `LayoutBuilder` mobile breakpoints (Timetable, Documents,
+Attendance kiosk). Everything else in the Phase 5 gate — dead ends, raw
+exceptions, empty states, the WS badge, the dashboard live-counter — is
+code-reviewed, fixed, and live-verified.
+
+**Update, during Phase 6 screenshot capture:** the Staffing chart is now
+live-verified — `docs/screenshots/05-staffing.jpg` is a real screenshot of
+the `fl_chart` backtest line rendering correctly with real forecast data
+(department cards, predicted-vs-actual lines, the honest "2.5% better than
+a flat-average baseline" skill score). One item left: the mobile-width
+`LayoutBuilder` breakpoints (900px for Documents/Timetable, 760px for the
+Attendance kiosk). Partial evidence gathered — the nav rail's own
+icon-only collapse at ≥700px/<1000px was confirmed rendering correctly at
+800px width — but none of the three panel-specific breakpoints were
+reached before the browser tooling locked up across all open tabs
+(confirmed environmental: every tab, including ones untouched by the
+resize, stopped responding to screenshot calls). Not retried further per
+the tool guidance against rabbit-holing on browser automation failures.
+Carried forward; low-risk since the code is a straightforward,
+already-reviewed `LayoutBuilder` conditional identical in shape across all
+three screens.
 
 ## Done
 - **Phase 5** — feature freeze & bug bash (in progress, first pass done,
@@ -312,30 +337,37 @@ phase, per CLAUDE.md.
   are both affected by the production memory issue above; the document
   pipeline is unaffected and now verified live in production (see Phase 3
   log entry above for the free-tier pre-deploy-command gap this uncovered).
-- The Staffing screen's backtest chart specifically is still verified
-  statically only (`flutter analyze` clean, `flutter build web` succeeds,
-  backend curl-verified) — it's the one Phase 4 screen the recovered
-  browser tooling this session didn't get to. Every other Phase 4/5 feature
-  (Action Center, substitute assignment, notifications, attendance
-  kiosk/manual/ID-cards, Reset button, Documents pipeline, WS badge, login)
-  has now been verified live in the browser at least once.
-- Phase 5's mobile-responsive `LayoutBuilder` breakpoints (900px/760px) and
-  the substitute-dialog error-banner fix are still verified statically only
-  — the recovered browser tooling this session was spent chasing the two
-  bugs above instead of a narrow-viewport pass. Worth resizing the window
-  and re-running the "Mark absent" flow next session.
+- The Staffing screen's backtest chart is now live-verified (Phase 6
+  screenshot capture — see `docs/screenshots/05-staffing.jpg` and the
+  transition note at the top of this file). Every Phase 4/5 feature (Action
+  Center, substitute assignment, notifications, attendance
+  kiosk/manual/ID-cards, Reset button, Documents pipeline, WS badge, login,
+  Staffing chart) has now been verified live in the browser at least once.
+- Phase 5's mobile-responsive `LayoutBuilder` breakpoints (900px for
+  Documents/Timetable, 760px for the Attendance kiosk) and the
+  substitute-dialog error-banner fix are still verified statically only.
+  Attempted during Phase 6's screenshot session; the browser tooling locked
+  up across every open tab mid-resize before any of the three breakpoints
+  were reached (see the transition note at the top of this file for detail)
+  — an environmental failure, not a code issue. Worth a clean retry with
+  fresh browser tooling.
+- Phase 5's original two-remaining-item list is now down to one (the
+  breakpoints above) — this file's Phase 5 phase-log entry below still
+  reads "gate not yet passed," which is accurate; Phase 6 work proceeded in
+  parallel per explicit user instruction rather than waiting on it.
 
-## Next 3 tasks (Phase 5 — feature freeze & bug bash)
-1. Resize the window (or use device emulation) to actually exercise the
-   900px/760px `LayoutBuilder` breakpoints and the Staffing chart, the two
-   remaining statically-only-verified items — the last gap before this
-   phase's gate can be declared passed.
-2. Once those are checked, update this file's header to gate-passed and
-   write the Phase 5 phase-log entry's final verdict (currently in-progress).
-3. Revisit the Phase 2 production solver RAM gap and the Phase 5/6-deferred
-   §6.6 stretch items (Principal's Weekly Briefing, Ask Shaala) only if
-   Phase 5 finishes with room to spare — PROMPT.md's own hard rule is that a
-   flawless five-feature product beats a shaky eight.
+## Next 3 tasks (Phase 6 — artifacts & ship)
+1. Resize the window (or use device emulation) to exercise the 900px/760px
+   `LayoutBuilder` breakpoints — the one remaining Phase 5 item, carried
+   forward rather than blocking Phase 6.
+2. Finish the artifacts: README screenshots/architecture diagram (in
+   progress), a hero GIF of the Mrs. Rao flow, DEMO_SCRIPT.md finalized
+   with real narration lines, deploy hardening (keep-alive + hourly reset
+   cron via GitHub Actions).
+3. Things only the user can do: record the actual demo video (voice +
+   burned-in captions), test the live URL from a real phone on mobile
+   data, fill out the submission platform's form (platform itself unknown
+   — see `docs/brief.md`).
 
 ---
 
