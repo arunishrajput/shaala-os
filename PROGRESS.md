@@ -30,6 +30,26 @@ Carried forward; low-risk since the code is a straightforward,
 already-reviewed `LayoutBuilder` conditional identical in shape across all
 three screens.
 
+**Second update:** retried live-resize verification with a fresh tab;
+`resize_window` reported success three times (800×830, 800×900, 1000×700)
+but `window.innerWidth` — checked directly via JS after each call, not
+inferred from a screenshot — stayed pinned at 1512 every time. This is a
+different, more specific failure than the earlier tab-lockup: the tool
+call succeeds but has no effect on the actual OS window, so no amount of
+retrying resolves it in this session. Stopped after three attempts per the
+guidance against rabbit-holing, and fell back to static verification
+instead: read `documents_screen.dart`, `timetable_screen.dart`, and
+`attendance_screen.dart`'s `LayoutBuilder` bodies plus the panel widgets
+they render. All three are sound — in the narrow branch, `ReviewPanel` and
+`ExplainPanel` both take `width: null` (not their normal fixed 680px/360px)
+so they fill the available width instead of overflowing it, and the
+Attendance kiosk's camera pane sits in a `Column` with
+`CrossAxisAlignment.stretch` rather than its normal `SizedBox(width: 420)`.
+No fixed-width widget survives into any narrow branch. This is real
+evidence from reading the exact code that runs, not a guess — but it is
+static, not a pixel-rendered click-through, and is logged as such rather
+than claimed as equivalent to live verification.
+
 ## Done
 - **Phase 6** — artifacts & ship (in progress):
   - README.md: five real screenshots captured live (Dashboard, Timetable +
@@ -67,9 +87,28 @@ three screens.
     backtest chart (closing a Phase 5 known gap — see the screenshot) and
     the icon-only `NavigationRail` collapse at the 700–1000px breakpoint.
     The Documents/Timetable/Attendance-kiosk panel-specific breakpoints
-    (900px/760px) remain unverified — browser tooling locked up across
-    every open tab mid-check; not retried further per the guidance against
-    rabbit-holing on browser automation failures.
+    (900px/760px) could not be live-clicked — `resize_window` is a no-op
+    in this session (confirmed via `window.innerWidth` after three
+    attempts at different sizes) — but are now statically verified: all
+    three `LayoutBuilder` narrow branches replace/stack instead of
+    overflowing, and no fixed-width widget survives into any of them (see
+    the transition note above for the exact evidence per screen).
+  - Visual identity pass (user: "make it beautiful using frontend
+    skills"): added Fraunces (serif, w600) to the theme's `display*`/
+    `headline*` text-theme slots only — every screen title and "big
+    number" across the app runs through those slots already, so this one
+    theme-level change propagated everywhere with no per-screen risk,
+    without touching Phase 5's just-verified widget trees. Plus Jakarta
+    Sans stays for body/UI chrome. Rebuilt the login screen: a quiet
+    ruled-paper `CustomPainter` background (horizontal rules + one margin
+    line, both low-alpha) as the one deliberate signature element tying
+    back to "paper in, decisions out"; a single restrained fade+rise entry
+    animation on the login card; the Admin button now reads as primary
+    (filled) against Teacher/Parent (outlined) instead of three identical
+    buttons. Committed as `665f40d`. Recaptured all 6 screenshots and the
+    hero GIF against the redesigned theme for visual consistency
+    (`b013bd2`) — the old assets were taken before Fraunces existed and no
+    longer matched.
   - **Not yet done:** the actual demo video (needs the user's voice
     recording and burned-in captions — outside what this session can
     produce), a real phone-on-mobile-data check of the live URL, and the
@@ -389,25 +428,32 @@ three screens.
   Staffing chart) has now been verified live in the browser at least once.
 - Phase 5's mobile-responsive `LayoutBuilder` breakpoints (900px for
   Documents/Timetable, 760px for the Attendance kiosk) and the
-  substitute-dialog error-banner fix are still verified statically only.
-  Attempted during Phase 6's screenshot session; the browser tooling locked
-  up across every open tab mid-resize before any of the three breakpoints
-  were reached (see the transition note at the top of this file for detail)
-  — an environmental failure, not a code issue. Worth a clean retry with
-  fresh browser tooling.
+  substitute-dialog error-banner fix are statically verified, not
+  live-clicked. Two separate attempts across this session: first the
+  browser tooling locked up across every open tab mid-resize; on retry
+  with a fresh tab, `resize_window` itself proved to be a no-op
+  (`window.innerWidth` stayed at 1512 across three different target
+  sizes, checked directly via JS, not inferred from screenshots). Both are
+  environmental failures, not code issues — see the transition note at
+  the top of this file for the line-level code evidence gathered instead.
+  Worth a real device or a working resize tool if one becomes available;
+  not worth further time in this session per the anti-rabbit-holing
+  guidance.
 - Phase 5's original two-remaining-item list is now down to one (the
   breakpoints above) — this file's Phase 5 phase-log entry below still
   reads "gate not yet passed," which is accurate; Phase 6 work proceeded in
   parallel per explicit user instruction rather than waiting on it.
 
 ## Next 3 tasks (Phase 6 — artifacts & ship)
-1. Resize the window (or use device emulation) to exercise the 900px/760px
-   `LayoutBuilder` breakpoints — the one remaining Phase 5 item, carried
-   forward rather than blocking Phase 6.
-2. Finish the artifacts: README screenshots/architecture diagram (in
-   progress), a hero GIF of the Mrs. Rao flow, DEMO_SCRIPT.md finalized
-   with real narration lines, deploy hardening (keep-alive + hourly reset
-   cron via GitHub Actions).
+1. If a working browser-resize path becomes available, live-click the
+   900px/760px breakpoints to upgrade them from statically-verified to
+   live-verified — the one item this session's tooling couldn't close.
+2. Sweep the rest of the app (Dashboard, Timetable, Documents, Attendance,
+   People, Staffing) for the same "make it beautiful" pass the login
+   screen and theme got — the redesign so far is deliberately scoped to
+   the theme-level Fraunces change plus login only, to avoid destabilizing
+   Phase 5's just-verified widget trees; a wider pass is a real option if
+   there's session time left.
 3. Things only the user can do: record the actual demo video (voice +
    burned-in captions), test the live URL from a real phone on mobile
    data, fill out the submission platform's form (platform itself unknown
