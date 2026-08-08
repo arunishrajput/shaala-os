@@ -277,6 +277,17 @@ than claimed as equivalent to live verification.
     (`Image.open(...).seek()` until `EOFError`, then the actual last frame
     decoded and inspected, not just the frame count trusted) rather than
     assumed from the export tool's own report.
+  - **Deployed the light blue restyle** — `e03cb2b`/`9aec769` had restyled and
+    re-verified locally but, unlike every earlier phase, never actually shipped:
+    checked by opening `localhost` (rebuilt) side-by-side with the live
+    `shaala-os.vercel.app` in the browser and finding the deployed URL still
+    rendering the old dark slate theme. Rebuilt with the production
+    dart-defines (`API_BASE_URL=https://shaala-os-api.onrender.com`,
+    `WS_BASE_URL=wss://shaala-os-api.onrender.com`), `vercel --prod` from
+    `build/web`, aliased to `shaala-os.vercel.app`. Live-reverified: light
+    blue theme renders correctly and a real Admin login reaches the
+    Dashboard with live data (600 students, 40 teachers, 12 sections, WS
+    "Live").
 - **Phase 5** — feature freeze & bug bash (in progress, first pass done,
   Flutter-only so far):
   - Added a single `friendlyError(Object error)` helper (`data/repositories.dart`)
