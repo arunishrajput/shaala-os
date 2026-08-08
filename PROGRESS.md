@@ -224,6 +224,59 @@ than claimed as equivalent to live verification.
     produce), a real phone-on-mobile-data check of the live URL, and the
     submission platform's form (platform itself still unknown — see
     `docs/brief.md`).
+  - **Light blue theme restyle** (user request, using the frontend-design
+    skill). PROMPT.md §7.1 suggests a dark slate palette specifically to
+    match the organizer's own near-black brand — noted to the user before
+    starting, not silently overridden, then built as directed. Values-only
+    change in `theme.dart`: `AppColors`' six constants (page/card/border/
+    critical/warning/info/text) got new hex values — a pale sky-blue page
+    wash, white "page" cards, rule-blue borders, deep ink-navy text —
+    while field names and every one of the ~20 call sites across the app
+    stayed untouched, since `AppColors.X` is read directly rather than
+    through `Theme.of(context)`. Leans on the existing ruled-paper login
+    `CustomPainter`, which now reads as an actual notebook page instead of
+    a faint dark-mode texture (bumped its two paint alphas — light-on-light
+    needs more opacity than the old light-on-dark did to stay visible).
+    Severity colors were re-picked for real AA text contrast on a light
+    background, not just recolored: `critical`/`warning`/`info` are used as
+    *direct text color* in several screens (low-confidence field labels,
+    the WS badge, attendance scan feedback), not only as fills, so the
+    original dark-theme-tuned hues (e.g. `#F59E0B` amber, `#10B981` green)
+    would have nearly disappeared as text on a light background. Indigo
+    accent (`#6366F1`) kept exactly as-is for brand continuity across the
+    restyle. Deliberately a restyle, not a runtime toggle — CLAUDE.md
+    excludes dark-mode toggles and settings pages from scope, and since
+    every color is a hardcoded static constant read directly (not
+    `Theme.of(context)`) across the whole frontend, a real toggle would
+    mean touching every screen; flagged this to the user before starting
+    and they chose the restyle-only option. `make verify` exits 0 (ruff,
+    mypy, 58 pytest, flutter analyze, flutter build web). Live-verified
+    against the local stack: login, dashboard (Action Center + Weekly
+    Briefing), and timetable all render correctly with real contrast.
+    Committed as `e03cb2b`.
+  - **Full screenshot/GIF recapture for the new theme**, using the same
+    `gif_creator` export+download+sips-convert recipe as before, this time
+    against a static release build (`flutter build web` + `python3 -m
+    http.server`) rather than `flutter run -d chrome`'s debug/DDC mode —
+    the debug session accumulated `Cannot hit test a render box with no
+    size` render errors after a batch of clicks landed while the extension
+    was mid-reconnect, and hung rendering blank; the release-build approach
+    is also what the original Phase 6 capture used, and proved reliable
+    again here. All 6 `docs/screenshots/*.jpg` recaptured, `00-login.jpg`
+    included this time since the ruled-paper motif changed the most
+    visually. Reset demo data and regenerated a fresh timetable first (372
+    assignments, 8.029s) for a clean starting state; the Timetable shot
+    ended up framed on Aadhya Menon's own schedule (By Teacher view),
+    which ties directly into the hero GIF's Mrs. Rao story that follows.
+    `docs/hero.gif` re-recorded for real, not just re-styled: People → mark
+    Aadhya Menon absent → 2 uncovered periods surfaced (8-A Wed P2 and P4,
+    a different generated timetable than last time, not a bug) → assigned
+    both → "Every period is covered." → Dashboard shows both drafted
+    Outbox notifications and a freshly generated Weekly Briefing citing the
+    live 91.8% attendance figure. 14 frames, 1512×806, verified with PIL
+    (`Image.open(...).seek()` until `EOFError`, then the actual last frame
+    decoded and inspected, not just the frame count trusted) rather than
+    assumed from the export tool's own report.
 - **Phase 5** — feature freeze & bug bash (in progress, first pass done,
   Flutter-only so far):
   - Added a single `friendlyError(Object error)` helper (`data/repositories.dart`)
