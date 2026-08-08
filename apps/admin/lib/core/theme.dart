@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// PROMPT.md §7.1: deep slate base, one accent, semantic severity colors.
-// Never default Material blue.
+// PROMPT.md §7.1: one accent, semantic severity colors, never default
+// Material blue. Palette is a school exercise book read in morning light --
+// a pale sky-blue wash, crisp white "page" cards, rule-blue borders, deep
+// ink-navy text -- rather than a generic SaaS pastel. Field names kept as
+// slateDark/Mid/Light (their original dark-theme roles: page bg / card
+// surface / border) so every call site across the app needed zero changes.
 class AppColors {
-  static const slateDark = Color(0xFF0F172A);
-  static const slateMid = Color(0xFF1E293B);
-  static const slateLight = Color(0xFF334155);
+  static const slateDark = Color(0xFFEAF1FB); // page wash
+  static const slateMid = Color(0xFFFFFFFF); // card / surface
+  static const slateLight = Color(0xFFC9DCF5); // rule-blue border
   static const accent = Color(0xFF6366F1);
-  static const critical = Color(0xFFEF4444);
-  static const warning = Color(0xFFF59E0B);
-  static const info = Color(0xFF10B981);
-  static const textPrimary = Color(0xFFF1F5F9);
-  static const textSecondary = Color(0xFF94A3B8);
+  static const critical = Color(0xFFDC2626);
+  static const warning = Color(0xFFB45309);
+  static const info = Color(0xFF047857);
+  static const textPrimary = Color(0xFF16233F);
+  static const textSecondary = Color(0xFF5B6B85);
 }
 
 ThemeData buildAppTheme() {
-  final base = ThemeData.dark(useMaterial3: true);
+  final base = ThemeData.light(useMaterial3: true);
   final bodyTheme = GoogleFonts.plusJakartaSansTextTheme(base.textTheme).apply(
     bodyColor: AppColors.textPrimary,
     displayColor: AppColors.textPrimary,
@@ -41,7 +45,7 @@ ThemeData buildAppTheme() {
 
   return base.copyWith(
     scaffoldBackgroundColor: AppColors.slateDark,
-    colorScheme: const ColorScheme.dark(
+    colorScheme: const ColorScheme.light(
       primary: AppColors.accent,
       secondary: AppColors.accent,
       surface: AppColors.slateMid,
@@ -58,7 +62,9 @@ ThemeData buildAppTheme() {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppColors.slateLight.withValues(alpha: 0.4)),
+        // White cards on a light wash need a firmer border than the old
+        // dark theme did to still read as a distinct "page" edge.
+        side: BorderSide(color: AppColors.slateLight.withValues(alpha: 0.9)),
       ),
     ),
     navigationRailTheme: const NavigationRailThemeData(

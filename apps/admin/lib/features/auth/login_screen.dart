@@ -120,7 +120,7 @@ class _RuledPaperPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rulePaint = Paint()
-      ..color = AppColors.slateLight.withValues(alpha: 0.18)
+      ..color = AppColors.slateLight.withValues(alpha: 0.55)
       ..strokeWidth = 1;
     for (var y = _lineSpacing; y < size.height; y += _lineSpacing) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), rulePaint);
@@ -128,7 +128,7 @@ class _RuledPaperPainter extends CustomPainter {
 
     if (size.width > _marginInset + 40) {
       final marginPaint = Paint()
-        ..color = AppColors.accent.withValues(alpha: 0.12)
+        ..color = AppColors.accent.withValues(alpha: 0.22)
         ..strokeWidth = 1;
       canvas.drawLine(
         Offset(_marginInset, 0),
