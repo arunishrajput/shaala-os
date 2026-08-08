@@ -31,6 +31,50 @@ already-reviewed `LayoutBuilder` conditional identical in shape across all
 three screens.
 
 ## Done
+- **Phase 6** — artifacts & ship (in progress):
+  - README.md: five real screenshots captured live (Dashboard, Timetable +
+    explain panel, Documents review with bbox overlay, Attendance manual
+    roll call, Staffing forecast + backtest chart) in
+    `docs/screenshots/`; a hero GIF (`docs/hero.gif`, 2.7MB) of the actual
+    Mrs. Rao flow recorded live — mark Aadhya Menon absent, two uncovered
+    periods surfaced with ranked candidates, assigned both, "Every period
+    is covered," Dashboard Outbox shows both drafted notifications, no
+    uncovered-class alert; a Mermaid architecture diagram (no PNG tooling
+    needed, renders natively on GitHub); an updated "what's real vs
+    stubbed" table reflecting every Phase 5 fix.
+  - Screenshots and the GIF were captured against a **local** `make demo`
+    instance with a real generated timetable (372 entries, 8.03s,
+    feasible), not production — production's timetable is empty (the
+    known Render RAM gap from Phase 2), so the Timetable and "Mark absent"
+    screens have nothing to show there. Named explicitly in the README and
+    here, not hidden. Killed a stale `flutter run -d web-server` process
+    that had been running for hours and stopped responding; rebuilt a
+    clean local release bundle (`--dart-define`d at `localhost:8000`) and
+    served it statically instead.
+  - DEMO_SCRIPT.md: replaced the placeholder beat sheet with real,
+    word-for-word narration lines for all 7 beats, plus an explicit
+    recording note that the solver and Mrs. Rao beats need the local
+    instance for the same reason as the screenshots above.
+  - Deploy hardening (PROMPT.md §11): `.github/workflows/demo-survival.yml`
+    — a `/health` ping every 10 minutes (Render's free tier sleeps after
+    ~15 minutes idle) and an hourly `POST /demo/reset`. Not just written —
+    triggered manually via `gh workflow run` and confirmed both jobs
+    actually succeed against production (`health: 200 in 32.25s`,
+    `reset: 200 in 32.17s`). The 32-second timings are themselves real
+    evidence this safeguard is needed: the instance had gone back to sleep
+    during this same work session.
+  - Live-verified two more items along the way: the Staffing screen's
+    backtest chart (closing a Phase 5 known gap — see the screenshot) and
+    the icon-only `NavigationRail` collapse at the 700–1000px breakpoint.
+    The Documents/Timetable/Attendance-kiosk panel-specific breakpoints
+    (900px/760px) remain unverified — browser tooling locked up across
+    every open tab mid-check; not retried further per the guidance against
+    rabbit-holing on browser automation failures.
+  - **Not yet done:** the actual demo video (needs the user's voice
+    recording and burned-in captions — outside what this session can
+    produce), a real phone-on-mobile-data check of the live URL, and the
+    submission platform's form (platform itself still unknown — see
+    `docs/brief.md`).
 - **Phase 5** — feature freeze & bug bash (in progress, first pass done,
   Flutter-only so far):
   - Added a single `friendlyError(Object error)` helper (`data/repositories.dart`)
