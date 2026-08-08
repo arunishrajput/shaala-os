@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:web/web.dart' as web;
 
 import '../../core/theme.dart';
@@ -47,7 +48,14 @@ class AppShell extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            const Text('Shaala OS'),
+            Text(
+              'Shaala OS',
+              style: GoogleFonts.fraunces(
+                fontWeight: FontWeight.w600,
+                fontSize: 20,
+                color: AppColors.textPrimary,
+              ),
+            ),
             const SizedBox(width: 16),
             Text(
               'Shaala Public School',

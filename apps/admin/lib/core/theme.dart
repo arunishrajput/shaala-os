@@ -56,7 +56,10 @@ ThemeData buildAppTheme() {
     cardTheme: CardThemeData(
       color: AppColors.slateMid,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppColors.slateLight.withValues(alpha: 0.4)),
+      ),
     ),
     navigationRailTheme: const NavigationRailThemeData(
       backgroundColor: AppColors.slateMid,

@@ -110,71 +110,77 @@ class _ActionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // A colored left edge, not a small dot, so severity reads as a real
+    // triage signal at a glance -- structure encoding information, not
+    // decoration (the product's Action Center is a prioritized inbox, so
+    // priority should look like one).
     return AnimatedSize(
       duration: const Duration(milliseconds: 250),
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _severityColor(item.severity),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.slateMid,
+              border: Border(
+                left: BorderSide(
+                  color: _severityColor(item.severity),
+                  width: 4,
+                ),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.body,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                  const SizedBox(width: 12),
+                  TextButton(
+                    onPressed: () => _handlePrimaryAction(context, ref, item),
+                    child: Text(item.primaryAction),
+                  ),
+                  IconButton(
+                    tooltip: 'Dismiss',
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: AppColors.textSecondary,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.body,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                    onPressed: () async {
+                      try {
+                        await ref
+                            .read(actionItemsProvider.notifier)
+                            .dismiss(item.id);
+                      } catch (e) {
+                        if (context.mounted) _showActionError(context, e);
+                      }
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              TextButton(
-                onPressed: () => _handlePrimaryAction(context, ref, item),
-                child: Text(item.primaryAction),
-              ),
-              IconButton(
-                tooltip: 'Dismiss',
-                icon: const Icon(
-                  Icons.close,
-                  size: 18,
-                  color: AppColors.textSecondary,
-                ),
-                onPressed: () async {
-                  try {
-                    await ref
-                        .read(actionItemsProvider.notifier)
-                        .dismiss(item.id);
-                  } catch (e) {
-                    if (context.mounted) _showActionError(context, e);
-                  }
-                },
-              ),
-            ],
+            ),
           ),
         ),
       ),
