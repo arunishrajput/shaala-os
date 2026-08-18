@@ -4,6 +4,54 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../providers/core_providers.dart';
 
+// ─── Role definitions ────────────────────────────────────────────────────────
+
+class _RoleDef {
+  const _RoleDef({
+    required this.role,
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+  });
+  final String role;
+  final String label;
+  final String description;
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+}
+
+const _roles = [
+  _RoleDef(
+    role: 'admin',
+    label: 'Administrator',
+    description: 'Manage school operations & staff',
+    icon: Icons.admin_panel_settings_rounded,
+    iconColor: AppColors.accent,
+    iconBg: Color(0xFFEEF2FF),
+  ),
+  _RoleDef(
+    role: 'teacher',
+    label: 'Teacher',
+    description: 'Manage classes & student progress',
+    icon: Icons.people_rounded,
+    iconColor: Color(0xFF059669),
+    iconBg: Color(0xFFECFDF5),
+  ),
+  _RoleDef(
+    role: 'parent',
+    label: 'Parent',
+    description: 'Stay updated on your child',
+    icon: Icons.person_rounded,
+    iconColor: Color(0xFF0284C7),
+    iconBg: Color(0xFFEFF6FF),
+  ),
+];
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
+
 class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 
@@ -12,75 +60,223 @@ class LoginScreen extends ConsumerWidget {
     final auth = ref.watch(authProvider);
 
     return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(child: _RuledPaperBackground()),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Padding(
-                padding: const EdgeInsets.all(32),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                 child: _FadeInUp(
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Shaala OS',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(color: AppColors.accent, height: 1.1),
+                      const SizedBox(height: 8),
+
+                      // ── Logo ──────────────────────────────────────────────
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.school_rounded,
+                          color: AppColors.accent,
+                          size: 30,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // ── Heading ───────────────────────────────────────────
+                      RichText(
+                        text: TextSpan(
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
+                                height: 1.25,
+                                color: AppColors.textPrimary,
+                              ),
+                          children: const [
+                            TextSpan(
+                              text: 'Welcome to\n',
+                              style: TextStyle(fontWeight: FontWeight.w400),
+                            ),
+                            TextSpan(
+                              text: 'Shaala OS',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Paper in, decisions out.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textSecondary,
-                          letterSpacing: 0.2,
-                        ),
+                        'Choose your role to continue',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 36),
+
+                      // ── Error banner ──────────────────────────────────────
                       if (auth.error != null) ...[
-                        Text(
-                          auth.error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.critical),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.critical.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            auth.error!,
+                            style: const TextStyle(
+                              color: AppColors.critical,
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
                       ],
-                      _DemoLoginButton(
-                        role: 'admin',
-                        label: 'Continue as Admin',
-                        primary: true,
-                      ),
-                      const SizedBox(height: 12),
-                      _DemoLoginButton(
-                        role: 'teacher',
-                        label: 'Continue as Teacher',
-                      ),
-                      const SizedBox(height: 12),
-                      _DemoLoginButton(
-                        role: 'parent',
-                        label: 'Continue as Parent',
-                      ),
+
+                      // ── Role cards ────────────────────────────────────────
+                      for (int i = 0; i < _roles.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 12),
+                        _RoleCard(def: _roles[i]),
+                      ],
                     ],
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+
+            // ── Footer ────────────────────────────────────────────────────
+            const Padding(
+              padding: EdgeInsets.only(bottom: 20, top: 8),
+              child: Center(
+                child: Text(
+                  'Secure demo login',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// A single restrained entrance: fade + a short rise. One orchestrated
-/// moment reads as intentional; several scattered animated bits would read
-/// as noise on a screen this quiet.
+// ─── Role card ────────────────────────────────────────────────────────────────
+
+class _RoleCard extends ConsumerWidget {
+  const _RoleCard({required this.def});
+  final _RoleDef def;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authProvider);
+    final loading = auth.loadingRole == def.role;
+    final anyLoading = auth.loading;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: anyLoading
+            ? null
+            : () => ref.read(authProvider.notifier).demoLogin(def.role),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFE2E8F0),
+              width: 1,
+            ),
+          ),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              // ── Icon container ──────────────────────────────────────────
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: def.iconBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: loading
+                    ? Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: def.iconColor,
+                          ),
+                        ),
+                      )
+                    : Icon(def.icon, color: def.iconColor, size: 24),
+              ),
+              const SizedBox(width: 16),
+
+              // ── Label + description ────────────────────────────────────
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      def.label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      def.description,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // ── Chevron ────────────────────────────────────────────────
+              Icon(
+                Icons.chevron_right_rounded,
+                color: anyLoading && !loading
+                    ? const Color(0xFFE2E8F0)
+                    : const Color(0xFF94A3B8),
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Entrance animation ───────────────────────────────────────────────────────
+
+/// A single restrained entrance: fade + short rise. Kept from the original
+/// design — one orchestrated moment reads as intentional on a quiet screen.
 class _FadeInUp extends StatelessWidget {
   const _FadeInUp({required this.child});
   final Widget child;
@@ -93,91 +289,10 @@ class _FadeInUp extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (context, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, (1 - t) * 16), child: child),
-      ),
-      child: child,
-    );
-  }
-}
-
-/// A faint register-paper texture -- horizontal rules plus a single margin
-/// line, the specific material this product's whole thesis is about
-/// digitizing. Deliberately quiet: this is texture, not a pattern anyone
-/// should consciously notice.
-class _RuledPaperBackground extends StatelessWidget {
-  const _RuledPaperBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(painter: _RuledPaperPainter());
-  }
-}
-
-class _RuledPaperPainter extends CustomPainter {
-  static const _lineSpacing = 40.0;
-  static const _marginInset = 72.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rulePaint = Paint()
-      ..color = AppColors.slateLight.withValues(alpha: 0.55)
-      ..strokeWidth = 1;
-    for (var y = _lineSpacing; y < size.height; y += _lineSpacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), rulePaint);
-    }
-
-    if (size.width > _marginInset + 40) {
-      final marginPaint = Paint()
-        ..color = AppColors.accent.withValues(alpha: 0.22)
-        ..strokeWidth = 1;
-      canvas.drawLine(
-        Offset(_marginInset, 0),
-        Offset(_marginInset, size.height),
-        marginPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RuledPaperPainter oldDelegate) => false;
-}
-
-class _DemoLoginButton extends ConsumerWidget {
-  const _DemoLoginButton({
-    required this.role,
-    required this.label,
-    this.primary = false,
-  });
-
-  final String role;
-  final String label;
-  final bool primary;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authProvider);
-    final thisButtonLoading = auth.loadingRole == role;
-    final onPressed = auth.loading
-        ? null
-        : () => ref.read(authProvider.notifier).demoLogin(role);
-    final child = thisButtonLoading
-        ? const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        : Text(label);
-
-    if (primary) {
-      return ElevatedButton(onPressed: onPressed, child: child);
-    }
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.textPrimary,
-        side: const BorderSide(color: AppColors.slateLight),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 16),
+          child: child,
+        ),
       ),
       child: child,
     );
