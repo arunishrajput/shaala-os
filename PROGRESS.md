@@ -288,6 +288,46 @@ than claimed as equivalent to live verification.
     blue theme renders correctly and a real Admin login reaches the
     Dashboard with live data (600 students, 40 teachers, 12 sections, WS
     "Live").
+  - **Merged a community PR (`#1`, role-card login redesign) and found a real
+    production deploy bug in the process.** Reviewed the diff, brought its
+    hardcoded white background/icon colors and dropped ruled-paper texture
+    back in line with the `AppColors` palette established above, verified
+    with `flutter analyze` + `flutter build web` + a live screenshot, then
+    squash-merged. Merging triggered Vercel's GitHub auto-deploy for the
+    first time this project has relied on it (every prior deploy was the
+    manual `flutter build web` + `vercel --prod` sequence above) — and it
+    shipped an empty production deployment marked "READY": the project has
+    no Framework Preset, Root Directory, or Build Command configured, so
+    `vercel build` found nothing to build (confirmed in the build logs: 245ms,
+    "no files were prepared") and `shaala-os.vercel.app` 404'd. A from-scratch
+    "build Flutter inside Vercel's build container" fix was attempted
+    (`scripts/vercel-build.sh`, cloning the Flutter SDK on demand) but a local
+    dry-run of that exact script hit an internal `analyzer` crash
+    (`BundleWriter` stack overflow during `build_runner`) — not worth the
+    fragility for a hackathon-critical deploy path. Reverted to the
+    proven-reliable manual process instead: added `vercel.json`'s
+    `ignoreCommand: "exit 0"` so the GitHub integration always skips its own
+    (broken) build and leaves the last manual deploy live, and turned the
+    manual build+deploy sequence into `scripts/deploy.sh` — using
+    `vercel deploy --project shaala-os` explicitly rather than the
+    `.vercel/project.json` link file inside `build/web`, because that
+    directory is deleted and recreated by every `flutter build web`, which is
+    exactly how one redeploy attempt this session silently created a stray
+    second Vercel project ("web") instead of updating `shaala-os`. Separately
+    caught and fixed a second real bug on the same redeploy: the very first
+    manual rebuild used bare `flutter build web` without the production
+    `--dart-define`s, so it shipped pointing at `http://localhost:8000` —
+    caught by grepping the built `main.dart.js` for `localhost:8000` before
+    calling it done, not just trusting a green build. Final state
+    live-reverified: `shaala-os.vercel.app` returns 200, the bundle embeds
+    `shaala-os-api.onrender.com`, and `POST /auth/demo-login` with the
+    production `Origin` header returns a valid token with correct
+    `access-control-allow-origin`.
+  - **Known follow-up, not yet done:** an accidental stray Vercel project
+    named "web" (`prj_E7goe5QXQPnOBeDeNBcDbzx5sstc`) was created during the
+    relink mistake above and left in place — deleting a Vercel project needs
+    explicit user action, not taken automatically. Safe to delete whenever
+    convenient; nothing points at it.
 - **Phase 5** — feature freeze & bug bash (in progress, first pass done,
   Flutter-only so far):
   - Added a single `friendlyError(Object error)` helper (`data/repositories.dart`)
