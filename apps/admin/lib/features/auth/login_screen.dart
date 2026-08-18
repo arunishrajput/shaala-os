@@ -23,30 +23,33 @@ class _RoleDef {
   final Color iconBg;
 }
 
-const _roles = [
+// Not const: iconBg tints are alpha blends of the app's semantic colors
+// (theme.dart's "one accent, semantic severity colors" palette) rather than
+// new hardcoded hex values.
+final _roles = [
   _RoleDef(
     role: 'admin',
     label: 'Administrator',
     description: 'Manage school operations & staff',
     icon: Icons.admin_panel_settings_rounded,
     iconColor: AppColors.accent,
-    iconBg: Color(0xFFEEF2FF),
+    iconBg: AppColors.accent.withValues(alpha: 0.12),
   ),
   _RoleDef(
     role: 'teacher',
     label: 'Teacher',
     description: 'Manage classes & student progress',
     icon: Icons.people_rounded,
-    iconColor: Color(0xFF059669),
-    iconBg: Color(0xFFECFDF5),
+    iconColor: AppColors.info,
+    iconBg: AppColors.info.withValues(alpha: 0.12),
   ),
   _RoleDef(
     role: 'parent',
     label: 'Parent',
     description: 'Stay updated on your child',
     icon: Icons.person_rounded,
-    iconColor: Color(0xFF0284C7),
-    iconBg: Color(0xFFEFF6FF),
+    iconColor: AppColors.textPrimary,
+    iconBg: AppColors.slateDark,
   ),
 ];
 
@@ -60,115 +63,120 @@ class LoginScreen extends ConsumerWidget {
     final auth = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                child: _FadeInUp(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _RuledPaperBackground()),
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 24,
+                    ),
+                    child: _FadeInUp(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
 
-                      // ── Logo ──────────────────────────────────────────────
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEEF2FF),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(
-                          Icons.school_rounded,
-                          color: AppColors.accent,
-                          size: 30,
-                        ),
-                      ),
-                      const SizedBox(height: 28),
+                          // ── Logo ──────────────────────────────────────────────
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.school_rounded,
+                              color: AppColors.accent,
+                              size: 30,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
 
-                      // ── Heading ───────────────────────────────────────────
-                      RichText(
-                        text: TextSpan(
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineMedium
-                              ?.copyWith(
-                                height: 1.25,
-                                color: AppColors.textPrimary,
+                          // ── Heading ───────────────────────────────────────────
+                          RichText(
+                            text: TextSpan(
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    height: 1.25,
+                                    color: AppColors.textPrimary,
+                                  ),
+                              children: const [
+                                TextSpan(
+                                  text: 'Welcome to\n',
+                                  style: TextStyle(fontWeight: FontWeight.w400),
+                                ),
+                                TextSpan(
+                                  text: 'Shaala OS',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Choose your role to continue',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: 36),
+
+                          // ── Error banner ──────────────────────────────────────
+                          if (auth.error != null) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.critical.withValues(
+                                  alpha: 0.08,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                          children: const [
-                            TextSpan(
-                              text: 'Welcome to\n',
-                              style: TextStyle(fontWeight: FontWeight.w400),
+                              child: Text(
+                                auth.error!,
+                                style: const TextStyle(
+                                  color: AppColors.critical,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
-                            TextSpan(
-                              text: 'Shaala OS',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
+                            const SizedBox(height: 16),
                           ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Choose your role to continue',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                      const SizedBox(height: 36),
 
-                      // ── Error banner ──────────────────────────────────────
-                      if (auth.error != null) ...[
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.critical.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            auth.error!,
-                            style: const TextStyle(
-                              color: AppColors.critical,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // ── Role cards ────────────────────────────────────────
-                      for (int i = 0; i < _roles.length; i++) ...[
-                        if (i > 0) const SizedBox(height: 12),
-                        _RoleCard(def: _roles[i]),
-                      ],
-                    ],
+                          // ── Role cards ────────────────────────────────────────
+                          for (int i = 0; i < _roles.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 12),
+                            _RoleCard(def: _roles[i]),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
 
-            // ── Footer ────────────────────────────────────────────────────
-            const Padding(
-              padding: EdgeInsets.only(bottom: 20, top: 8),
-              child: Center(
-                child: Text(
-                  'Secure demo login',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    letterSpacing: 0.2,
+                // ── Footer ────────────────────────────────────────────────────
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 20, top: 8),
+                  child: Center(
+                    child: Text(
+                      'Secure demo login',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -187,7 +195,7 @@ class _RoleCard extends ConsumerWidget {
     final anyLoading = auth.loading;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.slateMid,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -197,13 +205,9 @@ class _RoleCard extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFFE2E8F0),
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.slateLight, width: 1),
           ),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
               // ── Icon container ──────────────────────────────────────────
@@ -261,8 +265,8 @@ class _RoleCard extends ConsumerWidget {
               Icon(
                 Icons.chevron_right_rounded,
                 color: anyLoading && !loading
-                    ? const Color(0xFFE2E8F0)
-                    : const Color(0xFF94A3B8),
+                    ? AppColors.slateLight
+                    : AppColors.textSecondary,
                 size: 22,
               ),
             ],
@@ -297,4 +301,48 @@ class _FadeInUp extends StatelessWidget {
       child: child,
     );
   }
+}
+
+// ─── Background texture ──────────────────────────────────────────────────────
+
+/// A faint register-paper texture -- horizontal rules plus a single margin
+/// line, the specific material this product's whole thesis is about
+/// digitizing. Deliberately quiet: this is texture, not a pattern anyone
+/// should consciously notice.
+class _RuledPaperBackground extends StatelessWidget {
+  const _RuledPaperBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _RuledPaperPainter());
+  }
+}
+
+class _RuledPaperPainter extends CustomPainter {
+  static const _lineSpacing = 40.0;
+  static const _marginInset = 72.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rulePaint = Paint()
+      ..color = AppColors.slateLight.withValues(alpha: 0.55)
+      ..strokeWidth = 1;
+    for (var y = _lineSpacing; y < size.height; y += _lineSpacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), rulePaint);
+    }
+
+    if (size.width > _marginInset + 40) {
+      final marginPaint = Paint()
+        ..color = AppColors.accent.withValues(alpha: 0.22)
+        ..strokeWidth = 1;
+      canvas.drawLine(
+        Offset(_marginInset, 0),
+        Offset(_marginInset, size.height),
+        marginPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RuledPaperPainter oldDelegate) => false;
 }
