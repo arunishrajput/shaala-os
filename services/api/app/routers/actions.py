@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 from app.db.models import ActionItem, ActionStatus
 from app.db.session import get_db
 from app.services.notifications import draft_parent_messages
+from app.security import get_current_user
 from app.ws.manager import manager
 
-router = APIRouter(prefix="/actions", tags=["actions"])
+router = APIRouter(prefix="/actions", tags=["actions"], dependencies=[Depends(get_current_user)])
 
 # Not alphabetical -- the Action Center is a priority stack (PROMPT.md §6.3),
 # critical always leads regardless of creation time.

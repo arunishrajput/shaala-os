@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from app.db.models import ClassSection, Student, Teacher
 from app.db.session import get_db
 from app.schemas import ClassSectionOut, StudentOut, TeacherOut
+from app.security import get_current_user
 
-router = APIRouter(tags=["people"])
+router = APIRouter(tags=["people"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/teachers", response_model=list[TeacherOut])

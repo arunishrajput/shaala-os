@@ -3,9 +3,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.security import get_current_user
 from app.services.ai.ask import AskError, answer_query
 
-router = APIRouter(prefix="/ask", tags=["ask"])
+router = APIRouter(prefix="/ask", tags=["ask"], dependencies=[Depends(get_current_user)])
 
 
 class AskRequest(BaseModel):

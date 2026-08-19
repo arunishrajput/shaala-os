@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.security import get_current_user
 from app.services.staffing.forecast import backtest, forecast
 
-router = APIRouter(prefix="/staffing", tags=["staffing"])
+router = APIRouter(prefix="/staffing", tags=["staffing"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/forecast")
