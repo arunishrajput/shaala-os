@@ -82,16 +82,59 @@ async def try_sample(doc_type: str, db: Session = Depends(get_db)) -> dict:
     return _detail(db, document)
 
 
+# Upload limits — conservative defaults for a school document context.
+_MAX_FILES_PER_REQUEST = 5
+_MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB per file
+_ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
+
+
 @router.post("/upload")
 async def upload(
     files: list[UploadFile] = File(...), db: Session = Depends(get_db)
 ) -> dict:
+    if len(files) > _MAX_FILES_PER_REQUEST:
+        raise HTTPException(
+            status_code=413,
+            detail=f"At most {_MAX_FILES_PER_REQUEST} files per request.",
+        )
+
     documents = []
     for file in files:
-        content = await file.read()
-        document = process_upload(db, content, file.content_type or "application/octet-stream")
+        # Validate MIME type before reading the body — fail fast on obvious junk.
+        if file.content_type not in _ALLOWED_MIME_TYPES:
+            raise HTTPException(
+                status_code=415,
+                detail=(
+                    f"Unsupported file type '{file.content_type}'. "
+                    f"Allowed: {', '.join(sorted(_ALLOWED_MIME_TYPES))}"
+                ),
+            )
+
+        # Read in chunks and enforce the per-file size cap — never load an
+        # unbounded file into RAM, and never fill Postgres with unlimited data.
+        chunks: list[bytes] = []
+        total = 0
+        chunk_size = 64 * 1024  # 64 KB
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > _MAX_FILE_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        f"File '{file.filename}' exceeds the "
+                        f"{_MAX_FILE_BYTES // (1024 * 1024)} MB limit."
+                    ),
+                )
+            chunks.append(chunk)
+        content = b"".join(chunks)
+
+        document = process_upload(db, content, file.content_type)
         documents.append(_summary(document))
         await manager.broadcast("document.uploaded", _summary(document))
+
     run_signals(db)
     await manager.broadcast("actions.updated", {})
     return {"documents": documents}
