@@ -18,7 +18,9 @@ from app.services.signals.registry import run_signals
 from app.services.vision.fixture import FIXTURES_DIR
 from app.ws.manager import manager
 
-router = APIRouter(prefix="/documents", tags=["documents"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/documents", tags=["documents"], dependencies=[Depends(get_current_user)]
+)
 
 SAMPLE_FILES = {
     "admission_form": "admission_form.jpg",

@@ -6,7 +6,9 @@ from app.db.models import Notification
 from app.db.session import get_db
 from app.security import get_current_user
 
-router = APIRouter(prefix="/notifications", tags=["notifications"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/notifications", tags=["notifications"], dependencies=[Depends(get_current_user)]
+)
 
 
 def _out(n: Notification) -> dict:

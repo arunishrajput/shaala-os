@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import DEMO_ANCHOR_DATE
 from app.db.models import RoomType, Teacher, TeacherAbsence, TimeSlot, TimetableEntry
 from app.db.session import get_db
+from app.security import get_current_user
 from app.services.notifications import draft_substitute_notice
 from app.services.signals.registry import run_signals
 from app.services.timetable.explain import (
@@ -17,12 +18,13 @@ from app.services.timetable.explain import (
     find_alternatives,
     slot_label,
 )
-from app.security import get_current_user
 from app.services.timetable.solver import SolveInput, generate_timetable, load_solve_input
 from app.services.timetable.substitute import apply_substitution, find_substitutes
 from app.ws.manager import manager
 
-router = APIRouter(prefix="/timetable", tags=["timetable"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/timetable", tags=["timetable"], dependencies=[Depends(get_current_user)]
+)
 
 
 class GenerateRequest(BaseModel):
