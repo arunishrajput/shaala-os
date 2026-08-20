@@ -30,4 +30,5 @@ jobs:
       - name: POST /demo/reset
         run: |
           curl -sf -o /dev/null -w "reset: %{http_code} in %{time_total}s\n" \
-            -X POST https://shaala-os-api.onrender.com/demo/reset
+            -X POST https://shaala-os-api.onrender.com/demo/reset \
+            -H "X-Reset-Key: ${{ secrets.DEMO_RESET_KEY }}"
