@@ -3,9 +3,12 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.db.session import SessionLocal
+from app.limiter import limiter
 from app.routers import (
     actions,
     ask,
@@ -48,27 +51,69 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Shaala OS API", lifespan=lifespan)
 
+# Rate limiter — must be registered before any route that uses @limiter.limit().
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# Fail fast if CORS_ORIGINS is not set — a missing value previously fell back
+# to ["*"], allowing any origin to make credentialed cross-origin requests.
+if not settings.cors_origins:
+    raise RuntimeError(
+        "CORS_ORIGINS must be set (comma-separated list of allowed origins). "
+        "Example: CORS_ORIGINS=https://shaala-os.vercel.app,http://localhost:5173"
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins or ["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+# ── Security + cache headers ──────────────────────────────────────────────────
 @app.middleware("http")
-async def no_store_middleware(request, call_next):
-    # No response here carries an explicit Cache-Control, which left GET
-    # endpoints (e.g. /students) eligible for the browser's own HTTP cache --
-    # Dio-on-web uses XMLHttpRequest, not fetch(), and Chrome was found
-    # serving a stale cached response for a WS-triggered refetch of the exact
-    # same URL immediately after a commit (live-verified: direct curl always
-    # saw the fresh count, but the same request from the running app didn't).
-    # This app's whole live-update model depends on every refetch actually
-    # hitting the server, so nothing here should ever be browser-cached.
+async def security_headers_middleware(request, call_next):
     response = await call_next(request)
+
+    # Prevent browser caching — this app's live-update model depends on every
+    # refetch actually hitting the server (browsers served stale counts from XHR
+    # cache on rapid WS-triggered refetches; verified with direct curl vs app).
     response.headers["Cache-Control"] = "no-store"
+
+    # Prevent MIME-type sniffing — stops browsers treating an uploaded image
+    # that embeds a <script> tag as executable JavaScript.
+    response.headers["X-Content-Type-Options"] = "nosniff"
+
+    # Deny framing — prevents clickjacking attacks that embed this app in an
+    # invisible iframe on a malicious page.
+    response.headers["X-Frame-Options"] = "DENY"
+
+    # HSTS — instruct browsers to use HTTPS for the next year.
+    # Render enforces HTTPS by default; this header tells browsers to skip
+    # the initial HTTP request entirely on subsequent visits.
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
+
+    # Referrer policy — don't leak the full URL in the Referer header when
+    # the app links to third-party resources.
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    # CSP — restrict where the browser may load resources from.
+    # Flutter web requires unsafe-inline for both scripts and styles.
+    # Adjust connect-src if you add third-party API calls in future phases.
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "connect-src 'self' wss:; "
+        "frame-ancestors 'none';"
+    )
+
     return response
 
 
@@ -76,7 +121,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 # attendance before people: both declare a /students/... path, and FastAPI
 # matches in registration order, not by specificity. attendance's literal
-# /students/id-cards.pdf must be tried before people's parameterized
+# /students/id-cards.pdf must be tried before people's parameterised
 # /students/{student_id} or the latter swallows it (int-parses "id-cards.pdf",
 # 422s) — found by the id-cards.pdf test actually exercising the route.
 app.include_router(attendance.router)
