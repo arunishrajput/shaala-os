@@ -4,10 +4,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-shaala}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shaala}
+      # Default password removed — must be set explicitly in .env.
+      # The old default "shaala" made the database directly accessible to anyone
+      # who could reach port 5432 with trivial credentials.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-shaala}
-    ports:
-      - "5432:5432"
+    # No `ports:` mapping — Postgres must not be reachable from outside Docker.
+    # The api container talks to it as db:5432 over the internal bridge network.
+    # Exposing 5432 to the host lets any process (or network peer) connect
+    # directly, bypassing the API layer entirely.
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,8 +29,10 @@ services:
       DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8000:8000"
-    volumes:
-      - ./services/api:/app
+    # Source-code volume mount removed. The Dockerfile already COPYs the code
+    # into the image at build time. Mounting ./services/api:/app was a dev
+    # shortcut that let container writes overwrite host source files (and vice
+    # versa). Use `docker compose up --build` to pick up code changes instead.
     depends_on:
       db:
         condition: service_healthy
