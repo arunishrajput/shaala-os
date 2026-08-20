@@ -64,7 +64,9 @@ final demoRepositoryProvider = Provider<DemoRepository>((ref) {
 // (PROMPT.md §7.3). Domain providers listen to eventStreamProvider and
 // invalidate themselves once there are domain events to react to (Phase 3+).
 final wsClientProvider = Provider<WsClient>((ref) {
-  final client = WsClient();
+  final client = WsClient(
+    tokenProvider: () => ref.read(authProvider).result?.accessToken,
+  );
   ref.onDispose(client.dispose);
   return client;
 });
