@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Document, ExtractedField
 from app.db.session import get_db
+from app.security import get_current_user
 from app.services.documents import (
     CommitError,
     commit_document,
@@ -17,7 +18,9 @@ from app.services.signals.registry import run_signals
 from app.services.vision.fixture import FIXTURES_DIR
 from app.ws.manager import manager
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(
+    prefix="/documents", tags=["documents"], dependencies=[Depends(get_current_user)]
+)
 
 SAMPLE_FILES = {
     "admission_form": "admission_form.jpg",

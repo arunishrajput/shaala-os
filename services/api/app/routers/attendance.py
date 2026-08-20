@@ -14,10 +14,11 @@ from app.db.models import (
     Student,
 )
 from app.db.session import get_db
+from app.security import get_current_user
 from app.services.id_cards import generate_id_cards_pdf
 from app.ws.manager import manager
 
-router = APIRouter(tags=["attendance"])
+router = APIRouter(tags=["attendance"], dependencies=[Depends(get_current_user)])
 
 
 class ScanRequest(BaseModel):

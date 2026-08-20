@@ -34,3 +34,15 @@ class Settings:
 
 
 settings = Settings()
+
+# ---------------------------------------------------------------------------
+# Startup guard — fail fast rather than silently accepting an empty secret
+# that lets anyone forge tokens or predict QR codes. Skipped in test env.
+# ---------------------------------------------------------------------------
+if settings.env != "test" and (
+    not settings.jwt_secret or len(settings.jwt_secret) < 32
+):
+    raise RuntimeError(
+        "JWT_SECRET must be set and at least 32 characters long. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
