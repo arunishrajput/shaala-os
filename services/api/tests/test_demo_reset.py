@@ -24,7 +24,7 @@ def test_reset_restores_seed_data_within_budget():
         db.close()
 
     start = time.perf_counter()
-    resp = client.post("/demo/reset")
+    resp = client.post("/demo/reset", headers={"X-Reset-Key": "pytest-demo-reset-key"})
     elapsed = time.perf_counter() - start
 
     assert resp.status_code == 200
