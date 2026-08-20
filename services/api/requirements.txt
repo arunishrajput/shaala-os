@@ -26,3 +26,4 @@ reportlab==5.0.0
 qrcode==8.2
 httpx==0.28.1
 apscheduler==3.11.3
+slowapi==0.1.9
