@@ -69,7 +69,9 @@ def test_export_teacher_view_returns_pdf(db, auth):
 
 def test_export_single_class_by_id(db, auth):
     """?class_id=X returns a PDF filtered to that one class."""
+# test_export_single_class_by_id — line ~72
     from sqlalchemy import select
+
     from app.db.models import ClassSection
     section = db.scalar(select(ClassSection).order_by(ClassSection.id))
     assert section is not None
@@ -85,7 +87,9 @@ def test_export_single_class_by_id(db, auth):
 
 def test_export_single_teacher_by_id(db, auth):
     """?teacher_id=X returns a PDF filtered to that one teacher."""
+# test_export_single_teacher_by_id — line ~88
     from sqlalchemy import select
+
     from app.db.models import Teacher
     teacher = db.scalar(select(Teacher).order_by(Teacher.id))
     assert teacher is not None
