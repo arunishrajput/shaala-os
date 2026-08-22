@@ -168,20 +168,23 @@ def _draw_cell(
         c.setFillColor(colors.HexColor("#F59E0B"))  # amber accent
         c.rect(x, y_bot, 1.5 * mm, _ROW_H, fill=1, stroke=0)
 
+        x_text = x + pad + (2 * mm if is_sub else 0)
+    max_w = _COL_W - pad * 2
+
     # Subject name
     c.setFillColor(_TEXT_MAIN)
     c.setFont("Helvetica-Bold", 7.5)
-    c.drawString(x + pad + (2 * mm if is_sub else 0), y_bot + _ROW_H * 0.60, _truncate(line1, _COL_W - pad * 2))
+    c.drawString(x_text, y_bot + _ROW_H * 0.60, _truncate(line1, max_w))
 
     # Teacher / class
     c.setFont("Helvetica", 7)
     c.setFillColor(_TEXT_SUB)
-    c.drawString(x + pad + (2 * mm if is_sub else 0), y_bot + _ROW_H * 0.38, _truncate(line2, _COL_W - pad * 2))
+    c.drawString(x_text, y_bot + _ROW_H * 0.38, _truncate(line2, max_w))
 
     # Room
     c.setFont("Helvetica", 6.5)
     c.setFillColor(_TEXT_FAINT)
-    c.drawString(x + pad + (2 * mm if is_sub else 0), y_bot + _ROW_H * 0.16, _truncate(line3, _COL_W - pad * 2))
+    c.drawString(x_text, y_bot + _ROW_H * 0.16, _truncate(line3, max_w))
 
 
 def _truncate(text: str, max_width: float, font: str = "Helvetica", size: float = 7) -> str:
