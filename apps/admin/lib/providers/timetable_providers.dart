@@ -1,4 +1,8 @@
+import 'dart:js_interop';
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:web/web.dart' as web;
 
 import '../data/models/time_slot_info.dart';
 import '../data/models/timetable_entry.dart';
@@ -191,3 +195,71 @@ final substitutePanelProvider =
     NotifierProvider<SubstitutePanelNotifier, SubstitutePanelState>(
       SubstitutePanelNotifier.new,
     );
+
+// ── PDF Export ────────────────────────────────────────────────────────────────
+
+class ExportState {
+  const ExportState({this.exporting = false, this.error});
+
+  final bool exporting;
+  final String? error;
+}
+
+/// Fetches the timetable PDF via Dio (Bearer auth header attached) and triggers
+/// a browser file-download using the Web Blob API.
+///
+/// Why not `web.window.open(url, '_blank')`? That pattern (used for ID cards)
+/// cannot attach an Authorization header, so it only works while the API has
+/// no auth enforcement. This approach works correctly regardless.
+class ExportNotifier extends Notifier<ExportState> {
+  @override
+  ExportState build() => const ExportState();
+
+  Future<void> export({
+    required String view,
+    int? classId,
+    int? teacherId,
+  }) async {
+    state = const ExportState(exporting: true);
+    try {
+      final bytes = await ref.read(timetableRepositoryProvider).exportPdf(
+        view: view,
+        classId: classId,
+        teacherId: teacherId,
+      );
+      _downloadBytes(bytes, 'timetable-$view.pdf');
+      state = const ExportState();
+    } catch (e) {
+      state = ExportState(error: friendlyError(e));
+    }
+  }
+
+  /// Triggers a file-save dialog in the browser without opening a new tab.
+  ///
+  /// Creates a temporary Blob object URL, clicks a hidden <a download> anchor,
+  /// then immediately revokes the URL so the browser can free the Blob memory.
+  /// This is the standard pattern for programmatic downloads in Flutter web.
+  void _downloadBytes(Uint8List bytes, String filename) {
+    // ByteBuffer.toJS gives a JSArrayBuffer; wrap it in a typed list so Blob
+    // interprets it as binary data rather than a UTF-8 string.
+    final blobParts = <JSAny>[bytes.buffer.toJS].toJS;
+    final blob = web.Blob(
+      blobParts,
+      web.BlobPropertyBag(type: 'application/pdf'),
+    );
+    final url = web.URL.createObjectURL(blob);
+
+    final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
+    anchor.href = url;
+    anchor.setAttribute('download', filename);
+    web.document.body!.append(anchor);
+    anchor.click();
+    anchor.remove();
+
+    web.URL.revokeObjectURL(url);
+  }
+}
+
+final exportProvider = NotifierProvider<ExportNotifier, ExportState>(
+  ExportNotifier.new,
+);

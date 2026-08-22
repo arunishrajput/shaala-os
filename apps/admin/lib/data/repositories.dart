@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -142,6 +144,31 @@ class TimetableRepository {
       },
     );
     return resp.data as Map<String, dynamic>;
+  }
+
+  /// Fetches the active timetable as a printable PDF and returns the raw bytes.
+  ///
+  /// [view] is either 'class' (default) or 'teacher'.
+  /// [classId] / [teacherId] optionally restrict to a single entity — pass
+  /// whichever matches the current view mode shown in the timetable screen.
+  ///
+  /// Uses Dio with ResponseType.bytes so the Bearer auth header is sent
+  /// correctly (web.window.open cannot attach headers).
+  Future<Uint8List> exportPdf({
+    String view = 'class',
+    int? classId,
+    int? teacherId,
+  }) async {
+    final resp = await _client.dio.get(
+      '/timetable/export.pdf',
+      queryParameters: {
+        'view': view,
+        if (classId != null) 'class_id': classId,
+        if (teacherId != null) 'teacher_id': teacherId,
+      },
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(resp.data as List<int>);
   }
 }
 

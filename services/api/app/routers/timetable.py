@@ -1,6 +1,7 @@
 from datetime import date as date_
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from app.services.timetable.explain import (
     find_alternatives,
     slot_label,
 )
+from app.services.timetable.export import generate_timetable_pdf
 from app.services.timetable.solver import SolveInput, generate_timetable, load_solve_input
 from app.services.timetable.substitute import apply_substitution, find_substitutes
 from app.ws.manager import manager
@@ -358,3 +360,50 @@ async def substitute(payload: SubstituteRequest, db: Session = Depends(get_db)) 
         "uncovered_remaining": remaining,
         "entry": entry_out,
     }
+
+
+@router.get("/export.pdf")
+def export_pdf(
+    view: str = "class",
+    class_id: int | None = None,
+    teacher_id: int | None = None,
+    db: Session = Depends(get_db),
+) -> Response:
+    """Printable landscape-A4 timetable grid (PROMPT.md §8).
+
+    view="class"   → one page per class section (default)
+    view="teacher" → one page per teacher
+
+    Optional ?class_id=X or ?teacher_id=X restricts the export to a single
+    entity — used by the Flutter client when the user has one class or one
+    teacher selected in the view dropdown.
+
+    Returns a valid PDF even when no active timetable exists (a single
+    informative page rather than a 500), so the button never causes an error
+    screen on the live demo URL (PROMPT.md §11).
+    """
+    version = active_version(db)
+    entries: list[TimetableEntry] = []
+    si = load_solve_input(db)
+
+    if version is not None:
+        stmt = select(TimetableEntry).where(TimetableEntry.version_id == version.id)
+        # Pre-filter at the DB level when a specific entity is requested so we
+        # don't load the entire school timetable only to discard most of it.
+        if view == "teacher" and teacher_id is not None:
+            stmt = stmt.where(TimetableEntry.teacher_id == teacher_id)
+        elif view == "class" and class_id is not None:
+            stmt = stmt.where(TimetableEntry.class_id == class_id)
+        entries = list(db.scalars(stmt))
+
+    pdf_bytes = generate_timetable_pdf(
+        entries=entries,
+        si=si,
+        view=view if view in ("class", "teacher") else "class",
+        entity_id=class_id if view == "class" else teacher_id,
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="timetable.pdf"'},
+    )

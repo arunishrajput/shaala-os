@@ -70,6 +70,11 @@ class _Header extends ConsumerWidget {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const Spacer(),
+              // Export PDF — fetches bytes via Dio (auth header attached) and
+              // triggers a browser download. Disabled while a generate or
+              // export is already in flight to prevent duplicate requests.
+              const _ExportButton(),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: generateState.generating
                     ? null
@@ -126,6 +131,53 @@ class _Header extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ExportButton extends ConsumerWidget {
+  const _ExportButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final exportState = ref.watch(exportProvider);
+    final mode = ref.watch(timetableViewModeProvider);
+    final classId = ref.watch(effectiveClassIdProvider);
+    final teacherId = ref.watch(effectiveTeacherIdProvider);
+
+    // Surface export errors as a SnackBar and clear the error state so the
+    // button re-enables. Using ref.listen rather than checking inside build
+    // avoids setState-during-build issues.
+    ref.listen(exportProvider, (_, next) {
+      if (next.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error!),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        // Reset so the button doesn't stay permanently disabled
+        ref.read(exportProvider.notifier).state = const ExportState();
+      }
+    });
+
+    return OutlinedButton.icon(
+      onPressed: exportState.exporting
+          ? null
+          : () => ref.read(exportProvider.notifier).export(
+                view: mode == TimetableViewMode.byClass ? 'class' : 'teacher',
+                classId: mode == TimetableViewMode.byClass ? classId : null,
+                teacherId:
+                    mode == TimetableViewMode.byTeacher ? teacherId : null,
+              ),
+      icon: exportState.exporting
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+      label: Text(exportState.exporting ? 'Exporting…' : 'Export PDF'),
     );
   }
 }
