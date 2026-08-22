@@ -17,4 +17,8 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --forwarded-allow-ips="*" trusts Render's edge proxy to set X-Forwarded-For.
+# Without it, uvicorn's client info is the proxy's own address for every
+# request, so slowapi's IP-keyed rate limits (app/limiter.py) would bucket
+# all users behind Render together instead of limiting per real client.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]

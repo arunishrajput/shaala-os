@@ -1,6 +1,6 @@
 from datetime import date as date_
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import DEMO_ANCHOR_DATE
 from app.db.models import RoomType, Teacher, TeacherAbsence, TimeSlot, TimetableEntry
 from app.db.session import get_db
+from app.limiter import limiter
 from app.security import get_current_user
 from app.services.notifications import draft_substitute_notice
 from app.services.signals.registry import run_signals
@@ -41,7 +42,8 @@ class MoveRequest(BaseModel):
 
 
 @router.post("/generate")
-def generate(payload: GenerateRequest, db: Session = Depends(get_db)) -> dict:
+@limiter.limit("2/minute")  # CP-SAT solver runs up to 8 s; limit concurrent calls
+def generate(request: Request, payload: GenerateRequest, db: Session = Depends(get_db)) -> dict:
     return generate_timetable(db, weights=payload.weights, label=payload.label)
 
 

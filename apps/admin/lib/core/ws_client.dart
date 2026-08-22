@@ -24,10 +24,11 @@ class AppEvent {
 /// eventStreamProvider and invalidate themselves; this class only owns the
 /// socket lifecycle and decoding.
 class WsClient {
-  WsClient() {
+  WsClient({String? Function()? tokenProvider}) : _tokenProvider = tokenProvider {
     _connect();
   }
 
+  final String? Function()? _tokenProvider;
   WebSocketChannel? _channel;
   final _controller = StreamController<AppEvent>.broadcast();
   final _statusController = StreamController<bool>.broadcast();
@@ -41,8 +42,20 @@ class WsClient {
   Stream<bool> get connectionStatus => _statusController.stream;
 
   Future<void> _connect() async {
+    // The server requires ?token=<jwt> on the handshake. Read it fresh on
+    // every (re)connect — not just once at construction — so a login that
+    // happens after this client is built, or a token refresh, is picked up
+    // without needing to tear down and recreate the whole client.
+    final token = _tokenProvider?.call();
+    if (token == null) {
+      _statusController.add(false);
+      _scheduleReconnect();
+      return;
+    }
     final channel = WebSocketChannel.connect(
-      Uri.parse('${Env.wsBaseUrl}/ws/events'),
+      Uri.parse('${Env.wsBaseUrl}/ws/events').replace(
+        queryParameters: {'token': token},
+      ),
     );
     _channel = channel;
     try {
